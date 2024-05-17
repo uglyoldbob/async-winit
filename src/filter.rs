@@ -126,9 +126,8 @@ impl<TS: ThreadSafety> Filter<TS> {
     pub fn handle_event<F>(
         &mut self,
         future: Pin<&mut F>,
-        event: Event<'_, Wakeup>,
+        event: Event<Wakeup>,
         elwt: &EventLoopWindowTarget<Wakeup>,
-        flow: &mut ControlFlow,
     ) -> ReturnOrFinish<(), F::Output>
     where
         F: Future,
@@ -157,14 +156,6 @@ impl<TS: ThreadSafety> Filter<TS> {
 
                 // We are not about to fall asleep.
                 false
-            }
-
-            Event::RedrawEventsCleared => {
-                // We are about to fall asleep, so make sure that the future knows it.
-                self.notifier.awake.store(false, Ordering::SeqCst);
-
-                // We are about to fall asleep.
-                true
             }
 
             _ => {
@@ -250,18 +241,18 @@ impl<TS: ThreadSafety> Filter<TS> {
         }
 
         // Set the control flow.
-        if let Some(code) = self.reactor.exit_requested() {
+        if let Some(_code) = self.reactor.exit_requested() {
             // The user wants to exit.
-            flow.set_exit_with_code(code);
+            elwt.exit();
         } else if self.yielding {
             // The future wants to be polled again as soon as possible.
-            flow.set_poll();
+            elwt.set_control_flow(ControlFlow::Poll);
         } else if let Some(deadline) = self.deadline {
             // The future wants to be polled again when the deadline is reached.
-            flow.set_wait_until(deadline);
+            elwt.set_control_flow(ControlFlow::WaitUntil(deadline));
         } else {
             // The future wants to poll.
-            flow.set_wait();
+            elwt.set_control_flow(ControlFlow::Wait);
         }
 
         // Return the output if any.

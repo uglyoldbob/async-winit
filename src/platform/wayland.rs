@@ -29,7 +29,7 @@ use crate::window::{Window, WindowBuilder};
 use std::os::raw;
 
 use winit::platform::wayland::{
-    EventLoopBuilderExtWayland as _, WindowBuilderExtWayland as _, WindowExtWayland as _,
+    EventLoopBuilderExtWayland as _, WindowBuilderExtWayland as _,
 };
 
 #[doc(inline)]
@@ -95,31 +95,9 @@ impl EventLoopBuilderExtWayland for EventLoopBuilder {
 ///
 /// [`Window`]: crate::window::Window
 pub trait WindowExtWayland: sealed::WindowPrivate {
-    /// Returns a pointer to the `wl_surface` object of wayland that is used by this window.
-    ///
-    /// Returns `None` if the window doesn't use wayland (if it uses xlib for example).
-    ///
-    /// The pointer will become invalid when the [`Window`] is destroyed.
-    fn wayland_surface(&self) -> Option<*mut raw::c_void>;
-
-    /// Returns a pointer to the `wl_display` object of wayland that is used by this window.
-    ///
-    /// Returns `None` if the window doesn't use wayland (if it uses xlib for example).
-    ///
-    /// The pointer will become invalid when the [`Window`] is destroyed.
-    fn wayland_display(&self) -> Option<*mut raw::c_void>;
 }
 
 impl<TS: ThreadSafety> WindowExtWayland for Window<TS> {
-    #[inline]
-    fn wayland_surface(&self) -> Option<*mut raw::c_void> {
-        self.window().wayland_surface()
-    }
-
-    #[inline]
-    fn wayland_display(&self) -> Option<*mut raw::c_void> {
-        self.window().wayland_display()
-    }
 }
 
 /// Additional methods on [`WindowBuilder`] that are specific to Wayland.

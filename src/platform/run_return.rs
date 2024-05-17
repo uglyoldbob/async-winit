@@ -28,24 +28,24 @@ use futures_lite::pin;
 use std::future::Future;
 
 /// Additional methods on [`EventLoop`] to return control flow to the caller.
-pub trait EventLoopExtRunReturn {
+pub trait EventLoopExtRunOnDemand {
     /// Initializes the `winit` event loop.
     ///
     /// Unlike [`EventLoop::block_on`], this function accepts non-`'static` (i.e. non-`move`) closures
     /// and returns control flow to the caller when `control_flow` is set to [`ControlFlow::Exit`].
     ///
     /// [`ControlFlow::Exit`]: crate::event_loop::ControlFlow::Exit
-    fn block_on_return<F>(&mut self, future: F) -> ReturnOrFinish<i32, F::Output>
+    fn block_on_demand<F>(&mut self, future: F) -> ReturnOrFinish<Result<(), winit::error::EventLoopError>, F::Output>
     where
         F: Future;
 }
 
-impl<TS: ThreadSafety> EventLoopExtRunReturn for EventLoop<TS> {
-    fn block_on_return<F>(&mut self, fut: F) -> ReturnOrFinish<i32, F::Output>
+impl<TS: ThreadSafety> EventLoopExtRunOnDemand for EventLoop<TS> {
+    fn block_on_demand<F>(&mut self, fut: F) -> ReturnOrFinish<Result<(), winit::error::EventLoopError>, F::Output>
     where
         F: Future,
     {
-        use winit::platform::run_return::EventLoopExtRunReturn as _;
+        use winit::platform::run_on_demand::EventLoopExtRunOnDemand as _;
 
         let inner = &mut self.inner;
 
@@ -54,12 +54,12 @@ impl<TS: ThreadSafety> EventLoopExtRunReturn for EventLoop<TS> {
         let mut filter = Filter::<TS>::new(inner);
 
         let mut output = None;
-        let exit = inner.run_return({
+        let exit = inner.run_on_demand({
             let output = &mut output;
-            move |event, elwt, flow| match filter.handle_event(fut.as_mut(), event, elwt, flow) {
+            move |event, elwt| match filter.handle_event(fut.as_mut(), event, elwt) {
                 ReturnOrFinish::FutureReturned(out) => {
                     *output = Some(out);
-                    flow.set_exit()
+                    elwt.exit();
                 }
 
                 ReturnOrFinish::Output(()) => {}

@@ -177,7 +177,7 @@ fn main2(event_loop: EventLoop<ThreadUnsafe>) {
                 target.exit().await;
             }
         }
-    });
+    }).unwrap();
 }
 
 async fn make_url_queries<'a>(

@@ -537,6 +537,7 @@ impl<T: Clone + 'static> Event for T {
     }
 }
 
+/*
 struct CallOnDrop<F: FnMut()>(F);
 
 impl<F: FnMut()> Drop for CallOnDrop<F> {
@@ -544,3 +545,4 @@ impl<F: FnMut()> Drop for CallOnDrop<F> {
         (self.0)();
     }
 }
+*/

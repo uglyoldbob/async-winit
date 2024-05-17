@@ -31,6 +31,11 @@ pub mod filter;
 pub mod platform;
 pub mod window;
 
+pub mod keyboard {
+    #[doc(inline)]
+    pub use winit::keyboard::*;
+}
+
 pub mod event {
     #[doc(inline)]
     pub use winit::event::*;

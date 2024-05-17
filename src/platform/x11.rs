@@ -26,10 +26,8 @@ use crate::event_loop::{EventLoopBuilder, EventLoopWindowTarget};
 use crate::sync::ThreadSafety;
 use crate::window::{Window, WindowBuilder};
 
-use std::os::raw;
-
 use winit::dpi::Size;
-use winit::platform::x11::{EventLoopBuilderExtX11 as _, WindowExtX11 as _};
+use winit::platform::x11::EventLoopBuilderExtX11 as _;
 
 #[doc(inline)]
 pub use winit::platform::x11::{register_xlib_error_hook, XWindowType, XlibErrorHook};
@@ -81,44 +79,9 @@ impl EventLoopBuilderExtX11 for EventLoopBuilder {
 ///
 /// [`Window`]: crate::window::Window
 pub trait WindowExtX11: sealed::WindowPrivate {
-    /// Returns the ID of the [`Window`] xlib object that is used by this window.
-    ///
-    /// Returns `None` if the window doesn't use xlib (if it uses wayland for example).
-    fn xlib_window(&self) -> Option<raw::c_ulong>;
-
-    /// Returns a pointer to the `Display` object of xlib that is used by this window.
-    ///
-    /// Returns `None` if the window doesn't use xlib (if it uses wayland for example).
-    ///
-    /// The pointer will become invalid when the [`Window`] is destroyed.
-    fn xlib_display(&self) -> Option<*mut raw::c_void>;
-
-    fn xlib_screen_id(&self) -> Option<raw::c_int>;
-
-    /// This function returns the underlying `xcb_connection_t` of an xlib `Display`.
-    ///
-    /// Returns `None` if the window doesn't use xlib (if it uses wayland for example).
-    ///
-    /// The pointer will become invalid when the [`Window`] is destroyed.
-    fn xcb_connection(&self) -> Option<*mut raw::c_void>;
 }
 
 impl<TS: ThreadSafety> WindowExtX11 for Window<TS> {
-    fn xcb_connection(&self) -> Option<*mut raw::c_void> {
-        self.window().xcb_connection()
-    }
-
-    fn xlib_display(&self) -> Option<*mut raw::c_void> {
-        self.window().xlib_display()
-    }
-
-    fn xlib_screen_id(&self) -> Option<raw::c_int> {
-        self.window().xlib_screen_id()
-    }
-
-    fn xlib_window(&self) -> Option<raw::c_ulong> {
-        self.window().xlib_window()
-    }
 }
 
 /// Additional methods on [`WindowBuilder`] that are specific to X11.

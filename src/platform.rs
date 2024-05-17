@@ -68,7 +68,7 @@ cfg_if::cfg_if! {
 }
 
 mod __private {
-    use crate::event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget};
+    use crate::event_loop::{EventLoopBuilder, EventLoopWindowTarget};
     use crate::window::{Window, WindowBuilder};
 
     #[doc(hidden)]
@@ -107,7 +107,7 @@ mod __private {
 
     sealed_trait_with_gen! {
         EventLoopWindowTarget EventLoopWindowTargetPrivate
-        EventLoop EventLoopPrivate
+        //EventLoop EventLoopPrivate
         Window WindowPrivate
     }
 }

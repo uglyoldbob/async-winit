@@ -62,7 +62,7 @@ use raw_window_handle::{HasRawDisplayHandle, RawDisplayHandle};
 use winit::event_loop::EventLoopProxy;
 
 #[doc(inline)]
-pub use winit::event_loop::{ControlFlow, DeviceEventFilter, EventLoopClosed};
+pub use winit::event_loop::{ControlFlow, EventLoopClosed};
 
 /// Used to indicate that we need to wake up the event loop.
 ///
@@ -178,7 +178,7 @@ impl EventLoopBuilder {
     ///
     /// [`platform`]: crate::platform
     pub fn build<TS: ThreadSafety>(&mut self) -> EventLoop<TS> {
-        let inner = self.inner.build();
+        let inner = self.inner.build().unwrap();
         EventLoop {
             window_target: EventLoopWindowTarget {
                 reactor: Reactor::<TS>::get(),
@@ -291,18 +291,6 @@ impl<TS: ThreadSafety> EventLoopWindowTarget<TS> {
             .await;
         rx.recv().await.into_iter()
     }
-
-    /// Set the device event filter.
-    #[inline]
-    pub async fn set_device_event_filter(&self, filter: DeviceEventFilter) {
-        let (tx, rx) = crate::oneoff::oneoff();
-        self.reactor
-            .push_event_loop_op(EventLoopOp::SetDeviceFilter { filter, waker: tx })
-            .await;
-
-        // Wait for the filter to be set.
-        rx.recv().await;
-    }
 }
 
 unsafe impl<TS: ThreadSafety> HasRawDisplayHandle for EventLoopWindowTarget<TS> {
@@ -320,14 +308,14 @@ impl<TS: ThreadSafety + 'static> EventLoop<TS> {
 
     /// Block on a future forever.
     #[inline]
-    pub fn block_on(self, future: impl Future<Output = Infallible> + 'static) -> ! {
+    pub fn block_on(self, future: impl Future<Output = Infallible> + 'static) -> Result<(), winit::error::EventLoopError> {
         let inner = self.inner;
 
         let mut future = Box::pin(future);
         let mut filter = crate::filter::Filter::<TS>::new(&inner);
 
-        inner.run(move |event, elwt, flow| {
-            filter.handle_event(future.as_mut(), event, elwt, flow);
+        inner.run(move |event, elwt| {
+            filter.handle_event(future.as_mut(), event, elwt);
         })
     }
 }

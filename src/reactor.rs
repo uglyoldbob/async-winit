@@ -34,7 +34,6 @@ use std::time::{Duration, Instant};
 
 use winit::dpi::{PhysicalPosition, PhysicalSize, Position, Size};
 use winit::error::{ExternalError, NotSupportedError, OsError};
-use winit::event_loop::DeviceEventFilter;
 use winit::monitor::MonitorHandle;
 use winit::window::{
     CursorGrabMode, CursorIcon, Fullscreen, Icon, ImePurpose, ResizeDirection, Theme,
@@ -263,7 +262,7 @@ impl<TS: ThreadSafety> Reactor<TS> {
     }
 
     /// Post an event to the reactor.
-    pub(crate) async fn post_event<T: 'static>(&self, event: winit::event::Event<'_, T>) {
+    pub(crate) async fn post_event<T: 'static>(&self, event: winit::event::Event<T>) {
         use winit::event::Event;
 
         match event {
@@ -281,16 +280,6 @@ impl<TS: ThreadSafety> Reactor<TS> {
                 self.evl_registration.resumed.run_with(&mut ()).await;
             }
             Event::Suspended => self.evl_registration.suspended.run_with(&mut ()).await,
-            Event::RedrawRequested(id) => {
-                let registration = {
-                    let windows = self.windows.lock().unwrap();
-                    windows.get(&id).cloned()
-                };
-
-                if let Some(registration) = registration {
-                    registration.redraw_requested.run_with(&mut ()).await;
-                }
-            }
             _ => {}
         }
     }
@@ -312,15 +301,6 @@ pub(crate) enum EventLoopOp<TS: ThreadSafety> {
 
     /// Get the list of monitors.
     AvailableMonitors(Complete<Vec<MonitorHandle>, TS>),
-
-    /// Set the device filter.
-    SetDeviceFilter {
-        /// The device filter.
-        filter: DeviceEventFilter,
-
-        /// The device filter has been set.
-        waker: Complete<(), TS>,
-    },
 
     /// Get the inner position of the window.
     InnerPosition {
@@ -361,13 +341,25 @@ pub(crate) enum EventLoopOp<TS: ThreadSafety> {
         waker: Complete<PhysicalSize<u32>, TS>,
     },
 
-    /// Set the inner size.
-    SetInnerSize {
+    /// Set the min inner size.
+    SetMinInnerSize {
         /// The window.
         window: TS::Rc<Window>,
 
         /// The size.
-        size: Size,
+        size: Option<Size>,
+
+        /// Wake up the task.
+        waker: Complete<(), TS>,
+    },
+
+    /// Set the max inner size.
+    SetMaxInnerSize {
+        /// The window.
+        window: TS::Rc<Window>,
+
+        /// The size.
+        size: Option<Size>,
 
         /// Wake up the task.
         waker: Complete<(), TS>,
@@ -380,30 +372,6 @@ pub(crate) enum EventLoopOp<TS: ThreadSafety> {
 
         /// Wake up the task.
         waker: Complete<PhysicalSize<u32>, TS>,
-    },
-
-    /// Set the minimum inner size.
-    SetMinInnerSize {
-        /// The window.
-        window: TS::Rc<Window>,
-
-        /// The size.
-        size: Option<Size>,
-
-        /// Wake up the task.
-        waker: Complete<(), TS>,
-    },
-
-    /// Set the maximum inner size.
-    SetMaxInnerSize {
-        /// The window.
-        window: TS::Rc<Window>,
-
-        /// The size.
-        size: Option<Size>,
-
-        /// Wake up the task.
-        waker: Complete<(), TS>,
     },
 
     /// Get the resize increments.
@@ -602,12 +570,15 @@ pub(crate) enum EventLoopOp<TS: ThreadSafety> {
     },
 
     /// Set the IME position.
-    SetImePosition {
+    SetImeCursorArea {
         /// The window.
         window: TS::Rc<Window>,
 
         /// The IME position.
         position: Position,
+        
+        /// The IME size
+        size: Size,
 
         /// Wake up the task.
         waker: Complete<(), TS>,
@@ -809,11 +780,6 @@ impl<TS: ThreadSafety> fmt::Debug for EventLoopOp<TS> {
                 .finish(),
             EventLoopOp::PrimaryMonitor(_) => f.debug_struct("PrimaryMonitor").finish(),
             EventLoopOp::AvailableMonitors(_) => f.debug_struct("AvailableMonitors").finish(),
-            EventLoopOp::SetDeviceFilter { .. } => f
-                .debug_struct("SetDeviceFilter")
-                .field("filter", &"...")
-                .field("waker", &"...")
-                .finish(),
             EventLoopOp::InnerPosition { .. } => f
                 .debug_struct("InnerPosition")
                 .field("window", &"...")
@@ -833,12 +799,6 @@ impl<TS: ThreadSafety> fmt::Debug for EventLoopOp<TS> {
             EventLoopOp::InnerSize { .. } => f
                 .debug_struct("InnerSize")
                 .field("window", &"...")
-                .field("waker", &"...")
-                .finish(),
-            EventLoopOp::SetInnerSize { .. } => f
-                .debug_struct("SetInnerSize")
-                .field("window", &"...")
-                .field("size", &"...")
                 .field("waker", &"...")
                 .finish(),
             EventLoopOp::OuterSize { .. } => f
@@ -882,11 +842,6 @@ impl<TS: ThreadSafety> EventLoopOp<TS> {
                 waker.send(target.available_monitors().collect());
             }
 
-            EventLoopOp::SetDeviceFilter { filter, waker } => {
-                target.set_device_event_filter(filter);
-                waker.send(());
-            }
-
             EventLoopOp::InnerPosition { window, waker } => {
                 waker.send(window.inner_position());
             }
@@ -906,15 +861,6 @@ impl<TS: ThreadSafety> EventLoopOp<TS> {
 
             EventLoopOp::InnerSize { window, waker } => {
                 waker.send(window.inner_size());
-            }
-
-            EventLoopOp::SetInnerSize {
-                window,
-                size,
-                waker,
-            } => {
-                window.set_inner_size(size);
-                waker.send(());
             }
 
             EventLoopOp::OuterSize { window, waker } => {
@@ -1044,12 +990,13 @@ impl<TS: ThreadSafety> EventLoopOp<TS> {
                 waker.send(());
             }
 
-            EventLoopOp::SetImePosition {
+            EventLoopOp::SetImeCursorArea {
                 window,
                 position,
+                size,
                 waker,
             } => {
-                window.set_ime_position(position);
+                window.set_ime_cursor_area(position, size);
                 waker.send(());
             }
 

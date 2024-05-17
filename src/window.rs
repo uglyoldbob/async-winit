@@ -471,6 +471,56 @@ impl<TS: ThreadSafety> Window<TS> {
         WindowBuilder::new().build().await
     }
 
+    /// Gets whether the window has keyboard focus.
+    ///
+    /// This queries the same state information as [`WindowEvent::Focused`].
+    ///
+    /// [`WindowEvent::Focused`]: crate::event::WindowEvent::Focused
+    pub fn has_focus(&self) -> bool {
+        self.inner.has_focus()
+    }
+
+    /// Request the new size for the window.
+    ///
+    /// On platforms where the size is entirely controlled by the user the
+    /// applied size will be returned immediately, resize event in such case
+    /// may not be generated.
+    ///
+    /// On platforms where resizing is disallowed by the windowing system, the current
+    /// inner size is returned immidiatelly, and the user one is ignored.
+    ///
+    /// When `None` is returned, it means that the request went to the display system,
+    /// and the actual size will be delivered later with the [`WindowEvent::Resized`].
+    ///
+    /// See [`Window::inner_size`] for more information about the values.
+    ///
+    /// The request could automatically un-maximize the window if it's maximized.
+    ///
+    /// ```no_run
+    /// # use winit::dpi::{LogicalSize, PhysicalSize};
+    /// # use winit::event_loop::EventLoop;
+    /// # use winit::window::Window;
+    /// # let mut event_loop = EventLoop::new().unwrap();
+    /// # let window = Window::new(&event_loop).unwrap();
+    /// // Specify the size in logical dimensions like this:
+    /// let _ = window.request_inner_size(LogicalSize::new(400.0, 200.0));
+    ///
+    /// // Or specify the size in physical dimensions like this:
+    /// let _ = window.request_inner_size(PhysicalSize::new(400, 200));
+    /// ```
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Web:** Sets the size of the canvas element. Doesn't account for CSS [`transform`].
+    ///
+    /// [`WindowEvent::Resized`]: crate::event::WindowEvent::Resized
+    /// [`transform`]: https://developer.mozilla.org/en-US/docs/Web/CSS/transform
+    #[inline]
+    #[must_use]
+    pub fn request_inner_size<S: Into<Size>>(&self, size: S) -> Option<PhysicalSize<u32>> {
+        self.inner.request_inner_size(size)
+    }
+
     /// Get a reference to the underlying window.
     pub fn window(&self) -> &winit::window::Window {
         &self.inner
@@ -552,20 +602,6 @@ impl<TS: ThreadSafety> Window<TS> {
         self.reactor
             .push_event_loop_op(EventLoopOp::OuterSize {
                 window: self.inner.clone(),
-                waker: tx,
-            })
-            .await;
-
-        rx.recv().await
-    }
-
-    /// Set the inner size of the window.
-    pub async fn set_inner_size(&self, size: impl Into<Size>) {
-        let (tx, rx) = oneoff();
-        self.reactor
-            .push_event_loop_op(EventLoopOp::SetInnerSize {
-                window: self.inner.clone(),
-                size: size.into(),
                 waker: tx,
             })
             .await;
@@ -710,6 +746,26 @@ impl<TS: ThreadSafety> Window<TS> {
         rx.recv().await
     }
 
+    /// Sets the enabled window buttons.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Wayland / X11 / Orbital:** Not implemented.
+    /// - **Web / iOS / Android:** Unsupported.
+    pub fn set_enabled_buttons(&self, buttons: WindowButtons) {
+        self.inner.set_enabled_buttons(buttons);
+    }
+
+    /// Gets the enabled window buttons.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **Wayland / X11 / Orbital:** Not implemented. Always returns [`WindowButtons::all`].
+    /// - **Web / iOS / Android:** Unsupported. Always returns [`WindowButtons::all`].
+    pub fn enabled_buttons(&self) -> WindowButtons {
+        self.inner.enabled_buttons()
+    }
+
     /// Set the window's minimization.
     pub async fn set_minimized(&self, minimized: bool) {
         let (tx, rx) = oneoff();
@@ -805,6 +861,46 @@ impl<TS: ThreadSafety> Window<TS> {
         rx.recv().await
     }
 
+    /// Set the IME cursor editing area, where the `position` is the top left corner of that area
+    /// and `size` is the size of this area starting from the position. An example of such area
+    /// could be a input field in the UI or line in the editor.
+    ///
+    /// The windowing system could place a candidate box close to that area, but try to not obscure
+    /// the specified area, so the user input to it stays visible.
+    ///
+    /// The candidate box is the window / popup / overlay that allows you to select the desired
+    /// characters. The look of this box may differ between input devices, even on the same
+    /// platform.
+    ///
+    /// (Apple's official term is "candidate window", see their [chinese] and [japanese] guides).
+    ///
+    /// ## Example
+    ///
+    /// ```no_run
+    /// # use winit::dpi::{LogicalPosition, PhysicalPosition, LogicalSize, PhysicalSize};
+    /// # use winit::event_loop::EventLoop;
+    /// # use winit::window::Window;
+    /// # let mut event_loop = EventLoop::new().unwrap();
+    /// # let window = Window::new(&event_loop).unwrap();
+    /// // Specify the position in logical dimensions like this:
+    /// window.set_ime_cursor_area(LogicalPosition::new(400.0, 200.0), LogicalSize::new(100, 100));
+    ///
+    /// // Or specify the position in physical dimensions like this:
+    /// window.set_ime_cursor_area(PhysicalPosition::new(400, 200), PhysicalSize::new(100, 100));
+    /// ```
+    ///
+    /// ## Platform-specific
+    ///
+    /// - **X11:** - area is not supported, only position.
+    /// - **iOS / Android / Web / Orbital:** Unsupported.
+    ///
+    /// [chinese]: https://support.apple.com/guide/chinese-input-method/use-the-candidate-window-cim12992/104/mac/12.0
+    /// [japanese]: https://support.apple.com/guide/japanese-input-method/use-the-candidate-window-jpim10262/6.3/mac/12.0
+    #[inline]
+    pub fn set_ime_cursor_area<P: Into<Position>, S: Into<Size>>(&self, position: P, size: S) {
+        self.inner.set_ime_cursor_area(position, size)
+    }
+
     /// Get the window's decorations.
     pub async fn is_decorated(&self) -> bool {
         let (tx, rx) = oneoff();
@@ -847,12 +943,13 @@ impl<TS: ThreadSafety> Window<TS> {
     }
 
     /// Set the IME position.
-    pub async fn set_ime_position(&self, posn: impl Into<Position>) {
+    pub async fn set_ime_position(&self, posn: impl Into<Position>, size: impl Into<Size>) {
         let (tx, rx) = oneoff();
         self.reactor
-            .push_event_loop_op(EventLoopOp::SetImePosition {
+            .push_event_loop_op(EventLoopOp::SetImeCursorArea {
                 window: self.inner.clone(),
                 position: posn.into(),
+                size: size.into(),
                 waker: tx,
             })
             .await;
@@ -1137,7 +1234,7 @@ impl<TS: ThreadSafety> Window<TS> {
     }
 
     /// Get the handler for the `ModifiersChanged` event.
-    pub fn modifiers_changed(&self) -> &Handler<crate::event::ModifiersState, TS> {
+    pub fn modifiers_changed(&self) -> &Handler<crate::keyboard::ModifiersState, TS> {
         &self.registration.modifiers_changed
     }
 

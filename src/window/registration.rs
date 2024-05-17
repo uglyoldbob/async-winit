@@ -25,15 +25,16 @@ use crate::Event;
 
 use winit::dpi::PhysicalPosition;
 use winit::event::{
-    AxisId, DeviceId, ElementState, Ime, ModifiersState, MouseButton, MouseScrollDelta, Touch,
+    AxisId, DeviceId, ElementState, Ime, MouseButton, MouseScrollDelta, Touch,
     TouchPhase, WindowEvent,
 };
+use winit::keyboard::ModifiersState;
 use winit::window::Theme;
 
 #[derive(Clone)]
 pub struct KeyboardInput {
     pub device_id: DeviceId,
-    pub input: winit::event::KeyboardInput,
+    pub event: winit::event::KeyEvent,
     pub is_synthetic: bool,
 }
 
@@ -89,13 +90,13 @@ pub struct ScaleFactor;
 
 pub struct ScaleFactorChanging<'a> {
     pub scale_factor: f64,
-    pub new_inner_size: &'a mut PhysicalSize<u32>,
+    pub inner_size_writer: &'a mut winit::event::InnerSizeWriter,
 }
 
 #[derive(Clone)]
 pub struct ScaleFactorChanged {
     pub scale_factor: f64,
-    pub new_inner_size: PhysicalSize<u32>,
+    pub inner_size_writer: winit::event::InnerSizeWriter,
 }
 
 impl Event for ScaleFactor {
@@ -105,7 +106,7 @@ impl Event for ScaleFactor {
     fn downgrade(unique: &mut Self::Unique<'_>) -> Self::Clonable {
         ScaleFactorChanged {
             scale_factor: unique.scale_factor,
-            new_inner_size: *unique.new_inner_size,
+            inner_size_writer: unique.inner_size_writer.clone(),
         }
     }
 }
@@ -214,8 +215,11 @@ impl<TS: ThreadSafety> Registration<TS> {
         }
     }
 
-    pub(crate) async fn signal(&self, event: WindowEvent<'_>) {
+    pub(crate) async fn signal(&self, event: WindowEvent) {
         match event {
+            WindowEvent::RedrawRequested => {
+                self.redraw_requested.run_with(&mut ()).await;
+            }
             WindowEvent::CloseRequested => self.close_requested.run_with(&mut ()).await,
             WindowEvent::Resized(mut size) => self.resized.run_with(&mut size).await,
             WindowEvent::Moved(mut posn) => self.moved.run_with(&mut posn).await,
@@ -255,19 +259,19 @@ impl<TS: ThreadSafety> Registration<TS> {
             WindowEvent::Ime(mut ime) => self.ime.run_with(&mut ime).await,
             WindowEvent::KeyboardInput {
                 device_id,
-                input,
+                event,
                 is_synthetic,
             } => {
                 self.keyboard_input
                     .run_with(&mut KeyboardInput {
                         device_id,
-                        input,
+                        event,
                         is_synthetic,
                     })
                     .await
             }
-            WindowEvent::ModifiersChanged(mut mods) => {
-                self.modifiers_changed.run_with(&mut mods).await
+            WindowEvent::ModifiersChanged(mods) => {
+                self.modifiers_changed.run_with(&mut mods.state()).await
             }
             WindowEvent::MouseInput {
                 device_id,
@@ -298,17 +302,14 @@ impl<TS: ThreadSafety> Registration<TS> {
                     .await
             }
             WindowEvent::Occluded(mut occ) => self.occluded.run_with(&mut occ).await,
-            WindowEvent::ReceivedCharacter(mut ch) => {
-                self.received_character.run_with(&mut ch).await
-            }
             WindowEvent::ScaleFactorChanged {
                 scale_factor,
-                new_inner_size,
+                mut inner_size_writer,
             } => {
                 self.scale_factor_changed
                     .run_with(&mut ScaleFactorChanging {
                         scale_factor,
-                        new_inner_size,
+                        inner_size_writer: &mut inner_size_writer,
                     })
                     .await
             }

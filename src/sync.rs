@@ -193,10 +193,11 @@ impl<T> __private::ConcurrentQueue<T> for RefCell<VecDeque<T>> {
         self.borrow_mut().push_back(value);
         Ok(())
     }
-
+    /*
     fn pop(&self) -> Option<T> {
         self.borrow_mut().pop_front()
     }
+    */
 
     fn capacity(&self) -> usize {
         usize::MAX
@@ -409,10 +410,11 @@ pub(crate) mod thread_safe {
         fn push(&self, value: T) -> Result<(), T> {
             self.push(value).map_err(|e| e.into_inner())
         }
-
+        /*
         fn pop(&self) -> Option<T> {
             self.pop().ok()
         }
+        */
 
         fn capacity(&self) -> usize {
             self.capacity().unwrap()
@@ -554,7 +556,7 @@ pub(crate) mod __private {
 
         fn bounded(capacity: usize) -> Self;
         fn push(&self, value: T) -> Result<(), T>;
-        fn pop(&self) -> Option<T>;
+        //fn pop(&self) -> Option<T>;
         fn capacity(&self) -> usize;
         fn try_iter(&self) -> Self::TryIter<'_>;
     }
