@@ -44,7 +44,7 @@ pub type DefaultThreadSafety = _DefaultTS;
 
 /// A token that can be used to indicate whether the current implementation should be thread-safe or
 /// not.
-pub trait ThreadSafety: __ThreadSafety {}
+pub trait ThreadSafety: __ThreadSafety + std::fmt::Debug {}
 
 /// Use thread-unsafe primitives.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
