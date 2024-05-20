@@ -23,7 +23,7 @@ Public License along with `async-winit`. If not, see <https://www.gnu.org/licens
 
 #[doc(inline)]
 pub use winit::platform::windows::{
-    IconExtWindows, MonitorHandleExtWindows, HINSTANCE, HMENU, HMONITOR, HWND,
+    IconExtWindows, MonitorHandleExtWindows, HMENU, HMONITOR, HWND,
 };
 
 use super::__private as sealed;
@@ -103,13 +103,6 @@ impl EventLoopBuilderExtWindows for EventLoopBuilder {
 
 /// Additional methods on `Window` that are specific to Windows.
 pub trait WindowExtWindows: sealed::WindowPrivate {
-    /// Returns the HINSTANCE of the window
-    fn hinstance(&self) -> HINSTANCE;
-    /// Returns the native handle that is used by this window.
-    ///
-    /// The pointer will become invalid when the native window was destroyed.
-    fn hwnd(&self) -> HWND;
-
     /// Enables or disables mouse and keyboard input to the specified window.
     ///
     /// A window must be enabled before it can be activated.
@@ -138,14 +131,6 @@ pub trait WindowExtWindows: sealed::WindowPrivate {
 }
 
 impl<TS: ThreadSafety> WindowExtWindows for Window<TS> {
-    fn hwnd(&self) -> HWND {
-        self.window().hwnd()
-    }
-
-    fn hinstance(&self) -> HINSTANCE {
-        self.window().hinstance()
-    }
-
     fn set_enable(&self, enabled: bool) {
         self.window().set_enable(enabled);
     }
