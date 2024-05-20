@@ -57,6 +57,7 @@ use std::convert::Infallible;
 use std::fmt;
 use std::future::Future;
 use std::ops;
+use std::os::linux::raw;
 
 use raw_window_handle::{HasRawDisplayHandle, RawDisplayHandle};
 use winit::event_loop::EventLoopProxy;
@@ -290,6 +291,12 @@ impl<TS: ThreadSafety> EventLoopWindowTarget<TS> {
             .push_event_loop_op(EventLoopOp::AvailableMonitors(tx))
             .await;
         rx.recv().await.into_iter()
+    }
+}
+
+impl<TS: ThreadSafety> raw_window_handle::HasDisplayHandle for EventLoopWindowTarget<TS> {
+    fn display_handle(&self) -> Result<raw_window_handle::DisplayHandle<'_>, raw_window_handle::HandleError> {
+        todo!()
     }
 }
 
