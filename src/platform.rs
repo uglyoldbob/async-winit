@@ -68,7 +68,7 @@ cfg_if::cfg_if! {
 }
 
 mod __private {
-    use crate::event_loop::{EventLoopBuilder, EventLoopWindowTarget};
+    use crate::event_loop::EventLoopBuilder;
     use crate::window::{Window, WindowBuilder};
 
     #[doc(hidden)]
