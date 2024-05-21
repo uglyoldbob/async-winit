@@ -33,151 +33,153 @@ fn main() {
 fn main2(event_loop: EventLoop<ThreadUnsafe>) {
     let target = event_loop.window_target().clone();
 
-    event_loop.block_on(async move {
-        // Overall program state.
-        let state = RefCell::new(State::new());
+    event_loop
+        .block_on(async move {
+            // Overall program state.
+            let state = RefCell::new(State::new());
 
-        // Context for graphics.
-        let gdisplay =
-            RefCell::new(unsafe { Display::new(&target).expect("Failed to create display") });
+            // Context for graphics.
+            let gdisplay =
+                RefCell::new(unsafe { Display::new(&target).expect("Failed to create display") });
 
-        // Create an executor to handle all of our tasks.
-        let executor = Rc::new(smol::LocalExecutor::new());
+            // Create an executor to handle all of our tasks.
+            let executor = Rc::new(smol::LocalExecutor::new());
 
-        // Create a channel that signifies that the HTTP query should run again.
-        let (run_again, try_again) = bounded(1);
+            // Create a channel that signifies that the HTTP query should run again.
+            let (run_again, try_again) = bounded(1);
 
-        // Spawn the future that does the HTTP work on this executor.
-        executor
-            .spawn({
-                let executor = executor.clone();
-                let state = &state;
+            // Spawn the future that does the HTTP work on this executor.
+            executor
+                .spawn({
+                    let executor = executor.clone();
+                    let state = &state;
 
-                async move {
-                    loop {
-                        // Run the URL queries.
-                        if let Err(e) = make_url_queries(state, &executor).await {
-                            let mut stderr_writer = smol::Unblock::new(std::io::stderr());
-                            stderr_writer
-                                .write_all(format!("Error: {}", e).as_bytes())
-                                .await
-                                .ok();
-                        }
-
-                        // Indicate that we are no longer running.
-                        state.borrow_mut().running = false;
-
-                        // Wait for the next run.
-                        try_again.recv().await.ok();
-
-                        // Indicate that we are running again.
-                        state.borrow_mut().running = true;
-                    }
-                }
-            })
-            .detach();
-
-        loop {
-            // Wait for the application to become resumed, poll the executor while we do.
-            executor.run(target.resumed().wait()).await;
-
-            // Create a window.
-            let window = Window::<ThreadUnsafe>::new().await.unwrap();
-            state.borrow_mut().use_window(&window);
-
-            // Wait for the application to be suspended.
-            let mut suspend_guard = target.suspended().wait();
-
-            // Wait for the window to close.
-            let mut wait_for_close = executor.spawn({
-                let window = window.clone();
-                async move {
-                    window.close_requested().await;
-                    None
-                }
-            });
-
-            // Draw to the window.
-            let draw = executor.spawn({
-                let window = window.clone();
-                let state = &state;
-                let gdisplay = &gdisplay;
-
-                async move {
-                    let mut graphics_context = None;
-                    let mut draw_guard = window.redraw_requested().wait();
-
-                    loop {
-                        // Wait until we need to draw.
-                        let _guard = draw_guard.hold().await;
-
-                        // Get the window's size.
-                        let size = window.inner_size().await;
-
-                        // Get the graphics context.
-                        let graphics = match &mut graphics_context {
-                            Some(graphics) => graphics,
-                            graphics @ None => graphics.insert(
-                                unsafe {
-                                    gdisplay.borrow_mut().make_surface(
-                                        &window,
-                                        size.width,
-                                        size.height,
-                                    )
-                                }
-                                .await
-                                .unwrap(),
-                            ),
-                        };
-
-                        // Draw with the state.
-                        state.borrow_mut().draw(gdisplay, graphics, size);
-
-                        // Flush the graphics context.
-                        gdisplay.borrow_mut().present().await;
-                    }
-                }
-            });
-
-            // Try to re-run the HTTP queries when the "R" key is pressed.
-            let rerun_http = executor.spawn({
-                let state = &state;
-                let window = window.clone();
-                let run_again = run_again.clone();
-
-                async move {
-                    window
-                        .received_character()
-                        .wait()
-                        .for_each(|ch| {
-                            if (ch == 'R' || ch == 'r') && !state.borrow().running {
-                                run_again.try_send(()).ok();
+                    async move {
+                        loop {
+                            // Run the URL queries.
+                            if let Err(e) = make_url_queries(state, &executor).await {
+                                let mut stderr_writer = smol::Unblock::new(std::io::stderr());
+                                stderr_writer
+                                    .write_all(format!("Error: {}", e).as_bytes())
+                                    .await
+                                    .ok();
                             }
-                        })
-                        .await;
+
+                            // Indicate that we are no longer running.
+                            state.borrow_mut().running = false;
+
+                            // Wait for the next run.
+                            try_again.recv().await.ok();
+
+                            // Indicate that we are running again.
+                            state.borrow_mut().running = true;
+                        }
+                    }
+                })
+                .detach();
+
+            loop {
+                // Wait for the application to become resumed, poll the executor while we do.
+                executor.run(target.resumed().wait()).await;
+
+                // Create a window.
+                let window = Window::<ThreadUnsafe>::new().await.unwrap();
+                state.borrow_mut().use_window(&window);
+
+                // Wait for the application to be suspended.
+                let mut suspend_guard = target.suspended().wait();
+
+                // Wait for the window to close.
+                let mut wait_for_close = executor.spawn({
+                    let window = window.clone();
+                    async move {
+                        window.close_requested().await;
+                        None
+                    }
+                });
+
+                // Draw to the window.
+                let draw = executor.spawn({
+                    let window = window.clone();
+                    let state = &state;
+                    let gdisplay = &gdisplay;
+
+                    async move {
+                        let mut graphics_context = None;
+                        let mut draw_guard = window.redraw_requested().wait();
+
+                        loop {
+                            // Wait until we need to draw.
+                            let _guard = draw_guard.hold().await;
+
+                            // Get the window's size.
+                            let size = window.inner_size().await;
+
+                            // Get the graphics context.
+                            let graphics = match &mut graphics_context {
+                                Some(graphics) => graphics,
+                                graphics @ None => graphics.insert(
+                                    unsafe {
+                                        gdisplay.borrow_mut().make_surface(
+                                            &window,
+                                            size.width,
+                                            size.height,
+                                        )
+                                    }
+                                    .await
+                                    .unwrap(),
+                                ),
+                            };
+
+                            // Draw with the state.
+                            state.borrow_mut().draw(gdisplay, graphics, size);
+
+                            // Flush the graphics context.
+                            gdisplay.borrow_mut().present().await;
+                        }
+                    }
+                });
+
+                // Try to re-run the HTTP queries when the "R" key is pressed.
+                let rerun_http = executor.spawn({
+                    let state = &state;
+                    let window = window.clone();
+                    let run_again = run_again.clone();
+
+                    async move {
+                        window
+                            .received_character()
+                            .wait()
+                            .for_each(|ch| {
+                                if (ch == 'R' || ch == 'r') && !state.borrow().running {
+                                    run_again.try_send(()).ok();
+                                }
+                            })
+                            .await;
+                    }
+                });
+
+                // Run the executor until either the window closes or the application suspends.
+                let hold_guard = async {
+                    let hold_guard = suspend_guard.hold().await;
+                    Some(hold_guard)
                 }
-            });
+                .or(executor.run(&mut wait_for_close))
+                .await;
 
-            // Run the executor until either the window closes or the application suspends.
-            let hold_guard = async {
-                let hold_guard = suspend_guard.hold().await;
-                Some(hold_guard)
+                if let Some(guard) = hold_guard {
+                    // Wait for the tasks to die before suspending.
+                    rerun_http.cancel().await;
+                    wait_for_close.cancel().await;
+                    draw.cancel().await;
+                    state.borrow_mut().drop_window();
+                    drop((window, guard));
+                } else {
+                    target.exit().await;
+                }
             }
-            .or(executor.run(&mut wait_for_close))
-            .await;
-
-            if let Some(guard) = hold_guard {
-                // Wait for the tasks to die before suspending.
-                rerun_http.cancel().await;
-                wait_for_close.cancel().await;
-                draw.cancel().await;
-                state.borrow_mut().drop_window();
-                drop((window, guard));
-            } else {
-                target.exit().await;
-            }
-        }
-    }).unwrap();
+        })
+        .unwrap();
 }
 
 async fn make_url_queries<'a>(

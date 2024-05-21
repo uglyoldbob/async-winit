@@ -97,8 +97,8 @@ fn main2(evl: EventLoop) {
             .or(print_position)
             .or(draw)
             .await;
-
         // Exit.
         target.exit().await
-    });
+    })
+    .unwrap();
 }

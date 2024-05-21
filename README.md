@@ -22,7 +22,7 @@ use winit::window::Window;
 fn main2(evl: EventLoop<()>) {
     let mut window = None;
 
-    evl.run(move |event, elwt, flow| {
+    evl.run(move |event, elwt| {
         match event {
             Event::Resumed => {
                 // Application is active; create a window.
@@ -37,7 +37,7 @@ fn main2(evl: EventLoop<()>) {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => {
                     // Window is closed; exit the application.
-                    flow.set_exit();
+                    elwt.exit();
                 },
 
                 WindowEvent::Resized(size) => {
@@ -54,7 +54,7 @@ fn main2(evl: EventLoop<()>) {
 
 fn main() {
 #   return;
-    let evl = EventLoop::new();
+    let evl = EventLoop::new().unwrap();
     main2(evl);
 }
 ```

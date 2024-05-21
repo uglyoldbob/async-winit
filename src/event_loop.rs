@@ -294,7 +294,9 @@ impl<TS: ThreadSafety> EventLoopWindowTarget<TS> {
 }
 
 impl<TS: ThreadSafety> raw_window_handle_6::HasDisplayHandle for EventLoopWindowTarget<TS> {
-    fn display_handle(&self) -> Result<raw_window_handle_6::DisplayHandle<'_>, raw_window_handle_6::HandleError> {
+    fn display_handle(
+        &self,
+    ) -> Result<raw_window_handle_6::DisplayHandle<'_>, raw_window_handle_6::HandleError> {
         todo!()
     }
 }
@@ -314,7 +316,10 @@ impl<TS: ThreadSafety + 'static> EventLoop<TS> {
 
     /// Block on a future forever.
     #[inline]
-    pub fn block_on(self, future: impl Future<Output = Infallible> + 'static) -> Result<(), winit::error::EventLoopError> {
+    pub fn block_on(
+        self,
+        future: impl Future<Output = Infallible> + 'static,
+    ) -> Result<(), winit::error::EventLoopError> {
         let inner = self.inner;
 
         let mut future = Box::pin(future);

@@ -576,7 +576,7 @@ pub(crate) enum EventLoopOp<TS: ThreadSafety> {
 
         /// The IME position.
         position: Position,
-        
+
         /// The IME size
         size: Size,
 

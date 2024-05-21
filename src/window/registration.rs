@@ -25,8 +25,8 @@ use crate::Event;
 
 use winit::dpi::PhysicalPosition;
 use winit::event::{
-    AxisId, DeviceId, ElementState, Ime, MouseButton, MouseScrollDelta, Touch,
-    TouchPhase, WindowEvent,
+    AxisId, DeviceId, ElementState, Ime, MouseButton, MouseScrollDelta, Touch, TouchPhase,
+    WindowEvent,
 };
 use winit::keyboard::ModifiersState;
 use winit::window::Theme;

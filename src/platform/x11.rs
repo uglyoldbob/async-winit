@@ -78,11 +78,9 @@ impl EventLoopBuilderExtX11 for EventLoopBuilder {
 /// Additional methods on [`Window`] that are specific to X11.
 ///
 /// [`Window`]: crate::window::Window
-pub trait WindowExtX11: sealed::WindowPrivate {
-}
+pub trait WindowExtX11: sealed::WindowPrivate {}
 
-impl<TS: ThreadSafety> WindowExtX11 for Window<TS> {
-}
+impl<TS: ThreadSafety> WindowExtX11 for Window<TS> {}
 
 /// Additional methods on [`WindowBuilder`] that are specific to X11.
 ///

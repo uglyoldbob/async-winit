@@ -28,9 +28,7 @@ use crate::window::{Window, WindowBuilder};
 
 use std::os::raw;
 
-use winit::platform::wayland::{
-    EventLoopBuilderExtWayland as _, WindowBuilderExtWayland as _,
-};
+use winit::platform::wayland::{EventLoopBuilderExtWayland as _, WindowBuilderExtWayland as _};
 
 #[doc(inline)]
 pub use winit::platform::wayland::MonitorHandleExtWayland;
@@ -94,11 +92,9 @@ impl EventLoopBuilderExtWayland for EventLoopBuilder {
 /// Additional methods on [`Window`] that are specific to Wayland.
 ///
 /// [`Window`]: crate::window::Window
-pub trait WindowExtWayland: sealed::WindowPrivate {
-}
+pub trait WindowExtWayland: sealed::WindowPrivate {}
 
-impl<TS: ThreadSafety> WindowExtWayland for Window<TS> {
-}
+impl<TS: ThreadSafety> WindowExtWayland for Window<TS> {}
 
 /// Additional methods on [`WindowBuilder`] that are specific to Wayland.
 ///

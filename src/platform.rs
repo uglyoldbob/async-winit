@@ -106,7 +106,7 @@ mod __private {
     }
 
     sealed_trait_with_gen! {
-        EventLoopWindowTarget EventLoopWindowTargetPrivate
+        //EventLoopWindowTarget EventLoopWindowTargetPrivate
         //EventLoop EventLoopPrivate
         Window WindowPrivate
     }

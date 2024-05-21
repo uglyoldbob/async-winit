@@ -35,5 +35,6 @@ fn main2(evl: EventLoop) {
 
         // Exit.
         target.exit().await
-    });
+    })
+    .unwrap();
 }
