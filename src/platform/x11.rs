@@ -35,7 +35,7 @@ pub use winit::platform::x11::{register_xlib_error_hook, XWindowType, XlibErrorH
 /// Additional methods on [`EventLoopWindowTarget`] that are specific to X11.
 ///
 /// [`EventLoopWindowTarget`]: crate::event_loop::EventLoopWindowTarget
-pub trait EventLoopWindowTargetExtX11: sealed::EventLoopWindowTargetPrivate {
+pub trait EventLoopWindowTargetExtX11 {
     /// True if the [`EventLoopWindowTarget`] uses X11.
     fn is_x11(&self) -> bool;
 }

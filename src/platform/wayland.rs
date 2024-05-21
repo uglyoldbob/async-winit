@@ -36,7 +36,7 @@ pub use winit::platform::wayland::MonitorHandleExtWayland;
 /// Additional methods on [`EventLoopWindowTarget`] that are specific to Wayland.
 ///
 /// [`EventLoopWindowTarget`]: crate::event_loop::EventLoopWindowTarget
-pub trait EventLoopWindowTargetExtWayland: sealed::EventLoopWindowTargetPrivate {
+pub trait EventLoopWindowTargetExtWayland {
     /// True if the [`EventLoopWindowTarget`] uses Wayland.
     fn is_wayland(&self) -> bool;
 
