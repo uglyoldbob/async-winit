@@ -94,7 +94,7 @@ impl EventLoopBuilderExtWayland for EventLoopBuilder {
 /// [`Window`]: crate::window::Window
 pub trait WindowExtWayland: sealed::WindowPrivate {}
 
-impl<TS: ThreadSafety> WindowExtWayland for Window<TS> {}
+impl<U, TS: ThreadSafety> WindowExtWayland for Window<U, TS> {}
 
 /// Additional methods on [`WindowBuilder`] that are specific to Wayland.
 ///

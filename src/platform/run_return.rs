@@ -59,7 +59,7 @@ impl<TS: ThreadSafety> EventLoopExtRunOnDemand for EventLoop<TS> {
 
         pin!(fut);
 
-        let mut filter = Filter::<TS>::new(inner);
+        let mut filter = Filter::<U, TS>::new(inner);
 
         let mut output = None;
         let exit = inner.run_on_demand({

@@ -362,7 +362,7 @@ impl WindowBuilder {
     }
 
     /// Build a new window.
-    pub async fn build<TS: ThreadSafety>(self) -> Result<Window<TS>, OsError> {
+    pub async fn build<U, TS: ThreadSafety>(self) -> Result<Window<U, TS>, OsError> {
         let (tx, rx) = oneoff();
         let reactor = TS::get_reactor();
         reactor
@@ -436,38 +436,38 @@ impl WindowBuilder {
 
 /// A window.
 #[derive(Clone)]
-pub struct Window<TS: ThreadSafety> {
+pub struct Window<U, TS: ThreadSafety> {
     /// Underlying window.
     inner: TS::Rc<winit::window::Window>,
 
     /// Registration for the window.
-    registration: TS::Rc<Registration<TS>>,
+    registration: TS::Rc<Registration<U, TS>>,
 
     /// Underlying window reactor.
-    reactor: TS::Rc<Reactor<TS>>,
+    reactor: TS::Rc<Reactor<U, TS>>,
 }
 
-impl<TS: ThreadSafety> Drop for Window<TS> {
+impl<U, TS: ThreadSafety> Drop for Window<U, TS> {
     fn drop(&mut self) {
         self.reactor.remove_window(self.inner.id());
     }
 }
 
-unsafe impl<TS: ThreadSafety> raw_window_handle::HasRawDisplayHandle for Window<TS> {
+unsafe impl<U, TS: ThreadSafety> raw_window_handle::HasRawDisplayHandle for Window<U, TS> {
     fn raw_display_handle(&self) -> raw_window_handle::RawDisplayHandle {
         self.inner.raw_display_handle()
     }
 }
 
-unsafe impl<TS: ThreadSafety> raw_window_handle::HasRawWindowHandle for Window<TS> {
+unsafe impl<U, TS: ThreadSafety> raw_window_handle::HasRawWindowHandle for Window<U, TS> {
     fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
         self.inner.raw_window_handle()
     }
 }
 
-impl<TS: ThreadSafety> Window<TS> {
+impl<U, TS: ThreadSafety> Window<U, TS> {
     /// Create a new window.
-    pub async fn new() -> Result<Window<TS>, OsError> {
+    pub async fn new() -> Result<Window<U, TS>, OsError> {
         WindowBuilder::new().build().await
     }
 
@@ -542,7 +542,7 @@ impl<TS: ThreadSafety> Window<TS> {
     }
 }
 
-impl<TS: ThreadSafety> Window<TS> {
+impl<U, TS: ThreadSafety> Window<U, TS> {
     /// Get the inner position of the window.
     pub async fn inner_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
         let (tx, rx) = oneoff();
@@ -1197,124 +1197,124 @@ impl<TS: ThreadSafety> Window<TS> {
 }
 
 /// Waiting for events.
-impl<TS: ThreadSafety> Window<TS> {
+impl<U, TS: ThreadSafety> Window<U, TS> {
     /// Get the handler for the `RedrawRequested` event.
-    pub fn redraw_requested(&self) -> &Handler<(), TS> {
+    pub fn redraw_requested(&self) -> &Handler<(), U, TS> {
         &self.registration.redraw_requested
     }
 
     /// Get the handler for the `CloseRequested` event.
-    pub fn close_requested(&self) -> &Handler<(), TS> {
+    pub fn close_requested(&self) -> &Handler<(), U, TS> {
         &self.registration.close_requested
     }
 
     /// Get the handler for the `Resized` event.
-    pub fn resized(&self) -> &Handler<PhysicalSize<u32>, TS> {
+    pub fn resized(&self) -> &Handler<PhysicalSize<u32>, U, TS> {
         &self.registration.resized
     }
 
     /// Get the handler for the `Moved` event.
-    pub fn moved(&self) -> &Handler<PhysicalPosition<i32>, TS> {
+    pub fn moved(&self) -> &Handler<PhysicalPosition<i32>, U, TS> {
         &self.registration.moved
     }
 
     /// Get handler for the `Destroyed` event.
-    pub fn destroyed(&self) -> &Handler<(), TS> {
+    pub fn destroyed(&self) -> &Handler<(), U, TS> {
         &self.registration.destroyed
     }
 
     /// Get the handler for the `Focused` event.
-    pub fn focused(&self) -> &Handler<bool, TS> {
+    pub fn focused(&self) -> &Handler<bool, U, TS> {
         &self.registration.focused
     }
 
     /// Get the handler for the `KeyboardInput` event.
-    pub fn keyboard_input(&self) -> &Handler<crate::event::KeyboardInput, TS> {
+    pub fn keyboard_input(&self) -> &Handler<crate::event::KeyboardInput, U, TS> {
         &self.registration.keyboard_input
     }
 
     /// Get the handler for the `ModifiersChanged` event.
-    pub fn modifiers_changed(&self) -> &Handler<crate::keyboard::ModifiersState, TS> {
+    pub fn modifiers_changed(&self) -> &Handler<crate::keyboard::ModifiersState, U, TS> {
         &self.registration.modifiers_changed
     }
 
     /// Get the handler for the `ReceivedCharacter` event.
-    pub fn received_character(&self) -> &Handler<char, TS> {
+    pub fn received_character(&self) -> &Handler<char, U, TS> {
         &self.registration.received_character
     }
 
     /// Get the handler for the `Ime` event.
-    pub fn ime(&self) -> &Handler<crate::event::Ime, TS> {
+    pub fn ime(&self) -> &Handler<crate::event::Ime, U, TS> {
         &self.registration.ime
     }
 
     /// Get the handler for the `CursorMoved` event.
-    pub fn cursor_moved(&self) -> &Handler<crate::event::CursorMoved, TS> {
+    pub fn cursor_moved(&self) -> &Handler<crate::event::CursorMoved, U, TS> {
         &self.registration.cursor_moved
     }
 
     /// Get the handler for the `CursorEntered` event.
-    pub fn cursor_entered(&self) -> &Handler<DeviceId, TS> {
+    pub fn cursor_entered(&self) -> &Handler<DeviceId, U, TS> {
         &self.registration.cursor_entered
     }
 
     /// Get the handler for the `CursorLeft` event.
-    pub fn cursor_left(&self) -> &Handler<DeviceId, TS> {
+    pub fn cursor_left(&self) -> &Handler<DeviceId, U, TS> {
         &self.registration.cursor_left
     }
 
     /// Get the handle for the `MouseWheel` event.
-    pub fn mouse_wheel(&self) -> &Handler<crate::event::MouseWheel, TS> {
+    pub fn mouse_wheel(&self) -> &Handler<crate::event::MouseWheel, U, TS> {
         &self.registration.mouse_wheel
     }
 
     /// Get the handle for the `MouseInput` event.
-    pub fn mouse_input(&self) -> &Handler<crate::event::MouseInput, TS> {
+    pub fn mouse_input(&self) -> &Handler<crate::event::MouseInput, U, TS> {
         &self.registration.mouse_input
     }
 
     /// Get the handle for the `TouchpadMagnify` event.
-    pub fn touchpad_magnify(&self) -> &Handler<crate::event::TouchpadMagnify, TS> {
+    pub fn touchpad_magnify(&self) -> &Handler<crate::event::TouchpadMagnify, U, TS> {
         &self.registration.touchpad_magnify
     }
 
     /// Get the handle for the `TouchpadPressure` event.
-    pub fn touchpad_pressure(&self) -> &Handler<crate::event::TouchpadPressure, TS> {
+    pub fn touchpad_pressure(&self) -> &Handler<crate::event::TouchpadPressure, U, TS> {
         &self.registration.touchpad_pressure
     }
 
     /// Get the handle for the `Touch` event.
-    pub fn touch(&self) -> &Handler<crate::event::Touch, TS> {
+    pub fn touch(&self) -> &Handler<crate::event::Touch, U, TS> {
         &self.registration.touch
     }
 
     /// Get the handle for the `ScaleFactorChanged` event.
-    pub fn scale_factor_changed(&self) -> &Handler<crate::event::ScaleFactor, TS> {
+    pub fn scale_factor_changed(&self) -> &Handler<crate::event::ScaleFactor, U, TS> {
         &self.registration.scale_factor_changed
     }
 
     /// Get the handle for the `TouchpadRotate` event.
-    pub fn touchpad_rotate(&self) -> &Handler<crate::event::TouchpadRotate, TS> {
+    pub fn touchpad_rotate(&self) -> &Handler<crate::event::TouchpadRotate, U, TS> {
         &self.registration.touchpad_rotate
     }
 
     /// Get the handle for the `SmartMagnify` event.
-    pub fn smart_magnify(&self) -> &Handler<DeviceId, TS> {
+    pub fn smart_magnify(&self) -> &Handler<DeviceId, U, TS> {
         &self.registration.smart_magnify
     }
 
     /// Get the handle for the `AxisMotion` event.
-    pub fn axis_motion(&self) -> &Handler<crate::event::AxisMotion, TS> {
+    pub fn axis_motion(&self) -> &Handler<crate::event::AxisMotion, U, TS> {
         &self.registration.axis_motion
     }
 
     /// Get the handle for the `ThemeChanged` event.
-    pub fn theme_changed(&self) -> &Handler<Theme, TS> {
+    pub fn theme_changed(&self) -> &Handler<Theme, U, TS> {
         &self.registration.theme_changed
     }
 
     /// Get the handle for the `Occulded` event.
-    pub fn occluded(&self) -> &Handler<bool, TS> {
+    pub fn occluded(&self) -> &Handler<bool, U, TS> {
         &self.registration.occluded
     }
 }

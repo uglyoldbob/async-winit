@@ -44,7 +44,7 @@ const NEEDS_EXIT: i64 = 0x1;
 const EXIT_CODE_SHIFT: u32 = 1;
 
 #[doc(hidden)]
-pub struct Reactor<T: ThreadSafety> {
+pub struct Reactor<U, T: ThreadSafety> {
     /// The exit code to exit with, if any.
     exit_code: T::AtomicI64,
 
@@ -52,7 +52,7 @@ pub struct Reactor<T: ThreadSafety> {
     evl_ops: (T::Sender<EventLoopOp<T>>, T::Receiver<EventLoopOp<T>>),
 
     /// The list of windows.
-    windows: T::Mutex<HashMap<WindowId, T::Rc<WinRegistration<T>>>>,
+    windows: T::Mutex<HashMap<WindowId, T::Rc<WinRegistration<U, T>>>>,
 
     /// The event loop proxy.
     ///
@@ -80,7 +80,7 @@ enum TimerOp {
     RemoveTimer(Instant, usize),
 }
 
-impl<TS: ThreadSafety> Reactor<TS> {
+impl<U, TS: ThreadSafety> Reactor<U, TS> {
     /// Create an empty reactor.
     pub(crate) fn new() -> Self {
         static ALREADY_EXISTS: AtomicBool = AtomicBool::new(false);
@@ -164,7 +164,7 @@ impl<TS: ThreadSafety> Reactor<TS> {
     }
 
     /// Insert a window into the window list.
-    pub(crate) fn insert_window(&self, id: WindowId) -> TS::Rc<WinRegistration<TS>> {
+    pub(crate) fn insert_window(&self, id: WindowId) -> TS::Rc<WinRegistration<U, TS>> {
         let mut windows = self.windows.lock().unwrap();
         let registration = TS::Rc::new(WinRegistration::new());
         windows.insert(id, registration.clone());
@@ -262,7 +262,11 @@ impl<TS: ThreadSafety> Reactor<TS> {
     }
 
     /// Post an event to the reactor.
-    pub(crate) async fn post_event<U, T: 'static>(&self, user_data: &mut U, event: winit::event::Event<T>) {
+    pub(crate) async fn post_event<T: 'static>(
+        &self,
+        user_data: &mut U,
+        event: winit::event::Event<T>,
+    ) {
         use winit::event::Event;
 
         match event {
@@ -277,9 +281,17 @@ impl<TS: ThreadSafety> Reactor<TS> {
                 }
             }
             Event::Resumed => {
-                self.evl_registration.resumed.run_with(&mut (), user_data).await;
+                self.evl_registration
+                    .resumed
+                    .run_with(&mut (), &mut ())
+                    .await;
             }
-            Event::Suspended => self.evl_registration.suspended.run_with(&mut (), user_data).await,
+            Event::Suspended => {
+                self.evl_registration
+                    .suspended
+                    .run_with(&mut (), &mut ())
+                    .await
+            }
             _ => {}
         }
     }
@@ -1146,8 +1158,8 @@ impl<TS: ThreadSafety> EventLoopOp<TS> {
 }
 
 pub(crate) struct GlobalRegistration<T: ThreadSafety> {
-    pub(crate) resumed: Handler<(), T>,
-    pub(crate) suspended: Handler<(), T>,
+    pub(crate) resumed: Handler<(), (), T>,
+    pub(crate) suspended: Handler<(), (), T>,
 }
 
 impl<TS: ThreadSafety> GlobalRegistration<TS> {

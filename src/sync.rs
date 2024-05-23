@@ -73,14 +73,14 @@ impl __ThreadSafety for ThreadUnsafe {
         us_channel::channel()
     }
 
-    fn get_reactor() -> Self::Rc<Reactor<Self>> {
+    fn get_reactor<U>() -> Self::Rc<Reactor<U, Self>> {
         use once_cell::sync::OnceCell;
 
         /// The thread ID of the thread that created the reactor.
         static REACTOR_THREAD_ID: OnceCell<thread::ThreadId> = OnceCell::new();
 
         std::thread_local! {
-            static REACTOR: RefCell<Option<std::rc::Rc<Reactor<ThreadUnsafe>>>> = RefCell::new(None);
+            static REACTOR: RefCell<Option<std::rc::Rc<Reactor<U, ThreadUnsafe>>>> = RefCell::new(None);
         }
 
         // Try to set the thread ID.
@@ -489,7 +489,7 @@ pub(crate) mod __private {
         type Rc<T>: Rc<T>;
 
         fn channel_bounded<T>(capacity: usize) -> (Self::Sender<T>, Self::Receiver<T>);
-        fn get_reactor() -> Self::Rc<crate::reactor::Reactor<Self>>
+        fn get_reactor<U>() -> Self::Rc<crate::reactor::Reactor<U, Self>>
         where
             Self: super::ThreadSafety;
     }

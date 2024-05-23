@@ -55,7 +55,7 @@ pub enum ReturnOrFinish<O, T> {
 ///
 /// This type takes events and passes them to the event handlers. It also handles the `async` contexts
 /// that are waiting for events.
-pub struct Filter<TS: ThreadSafety> {
+pub struct Filter<U, TS: ThreadSafety> {
     /// The deadline to wait until.
     deadline: Option<Instant>,
 
@@ -82,15 +82,15 @@ pub struct Filter<TS: ThreadSafety> {
     yielding: bool,
 
     /// The reactor.
-    reactor: TS::Rc<Reactor<TS>>,
+    reactor: TS::Rc<Reactor<U, TS>>,
 }
 
-impl<TS: ThreadSafety> Filter<TS> {
+impl<U, TS: ThreadSafety> Filter<U, TS> {
     /// Create a new filter from an event loop.
     ///
     /// The future is polled once before returning to set up event handlers.
-    pub fn new(inner: &EventLoop<Wakeup>) -> Filter<TS> {
-        let reactor = Reactor::<TS>::get();
+    pub fn new(inner: &EventLoop<Wakeup>) -> Filter<U, TS> {
+        let reactor = Reactor::<U, TS>::get();
 
         // Create a waker to wake us up.
         let notifier = Arc::new(ReactorWaker {
@@ -123,7 +123,7 @@ impl<TS: ThreadSafety> Filter<TS> {
     /// Handle an event.
     ///
     /// This function will block on the future if it is in the holding pattern.
-    pub fn handle_event<U, F>(
+    pub fn handle_event<F>(
         &mut self,
         user_data: &mut U,
         future: Pin<&mut F>,

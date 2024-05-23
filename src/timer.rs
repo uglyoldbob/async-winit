@@ -42,9 +42,9 @@ use futures_lite::stream::Stream;
 ///
 /// [`ControlFlow::WaitUntil`]: crate::event_loop::ControlFlow::WaitUntil
 /// [`Timer`]: https://docs.rs/async-io/latest/async_io/timer/struct.Timer.html
-pub struct Timer<TS: ThreadSafety = crate::DefaultThreadSafety> {
+pub struct Timer<U, TS: ThreadSafety = crate::DefaultThreadSafety> {
     /// Static reference to the reactor.
-    reactor: TS::Rc<Reactor<TS>>,
+    reactor: TS::Rc<Reactor<U, TS>>,
 
     /// This timer's ID and the last waker that polled it.
     id_and_waker: Option<(usize, Waker)>,
@@ -68,11 +68,11 @@ impl<TS: ThreadSafety> fmt::Debug for Timer<TS> {
 
 impl<TS: ThreadSafety> Unpin for Timer<TS> {}
 
-impl<TS: ThreadSafety> Timer<TS> {
+impl<U, TS: ThreadSafety> Timer<U, TS> {
     /// Create a new timer that will never fire.
     pub fn never() -> Self {
         Self {
-            reactor: Reactor::<TS>::get(),
+            reactor: Reactor::<U, TS>::get(),
             id_and_waker: None,
             deadline: None,
             period: Duration::MAX,
@@ -106,7 +106,7 @@ impl<TS: ThreadSafety> Timer<TS> {
     /// Create a timer that fires on an interval starting at the given time.
     pub fn interval_at(start: Instant, period: Duration) -> Self {
         Self {
-            reactor: Reactor::<TS>::get(),
+            reactor: Reactor::<U, TS>::get(),
             id_and_waker: None,
             deadline: Some(start),
             period,
@@ -160,7 +160,7 @@ impl<TS: ThreadSafety> Timer<TS> {
     }
 }
 
-impl<TS: ThreadSafety> Drop for Timer<TS> {
+impl<U, TS: ThreadSafety> Drop for Timer<U, TS> {
     fn drop(&mut self) {
         self.clear();
     }

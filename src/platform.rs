@@ -94,7 +94,7 @@ mod __private {
                 fn __sealed_marker(i: Internal);
             }
 
-            impl<TS: crate::sync::ThreadSafety> $tname for $name<TS> {
+            impl<U, TS: crate::sync::ThreadSafety> $tname for $name<U, TS> {
                 fn __sealed_marker(_: Internal) {}
             }
         )*}

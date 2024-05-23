@@ -91,15 +91,15 @@ pub struct Wakeup {
 /// thread to be used.
 ///
 /// [`Window`]: crate::window::Window
-pub struct EventLoop<TS: ThreadSafety = DefaultThreadSafety> {
+pub struct EventLoop<U, TS: ThreadSafety = DefaultThreadSafety> {
     /// The underlying event loop.
     pub(crate) inner: winit::event_loop::EventLoop<Wakeup>,
 
     /// The window target.
-    window_target: EventLoopWindowTarget<TS>,
+    window_target: EventLoopWindowTarget<U, TS>,
 }
 
-impl<TS: ThreadSafety> fmt::Debug for EventLoop<TS> {
+impl<U, TS: ThreadSafety> fmt::Debug for EventLoop<U, TS> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("EventLoop { .. }")
     }
@@ -111,9 +111,9 @@ impl<TS: ThreadSafety> fmt::Debug for EventLoop<TS> {
 /// its previous use cases don't directly require the window target to be passed in. However, it is
 /// still useful for some things, like indicating the need to exit the application or getting
 /// available monitors.
-pub struct EventLoopWindowTarget<TS: ThreadSafety = DefaultThreadSafety> {
+pub struct EventLoopWindowTarget<U, TS: ThreadSafety = DefaultThreadSafety> {
     /// The associated reactor, cached for convenience.
-    reactor: TS::Rc<Reactor<TS>>,
+    reactor: TS::Rc<Reactor<U, TS>>,
 
     /// The event loop proxy.
     proxy: EventLoopProxy<Wakeup>,
@@ -124,6 +124,8 @@ pub struct EventLoopWindowTarget<TS: ThreadSafety = DefaultThreadSafety> {
     /// Is this using wayland?
     #[cfg(any(x11_platform, wayland_platform))]
     pub(crate) is_wayland: bool,
+
+    dummy: std::marker::PhantomData<U>,
 }
 
 impl<TS: ThreadSafety> fmt::Debug for EventLoopWindowTarget<TS> {
@@ -140,6 +142,7 @@ impl<TS: ThreadSafety> Clone for EventLoopWindowTarget<TS> {
             raw_display_handle: self.raw_display_handle,
             #[cfg(any(x11_platform, wayland_platform))]
             is_wayland: self.is_wayland,
+            dummy: std::marker::PhantomData,
         }
     }
 }
@@ -177,11 +180,11 @@ impl EventLoopBuilder {
     /// This function results in platform-specific backend initialization.
     ///
     /// [`platform`]: crate::platform
-    pub fn build<TS: ThreadSafety>(&mut self) -> EventLoop<TS> {
+    pub fn build<U, TS: ThreadSafety>(&mut self) -> EventLoop<U, TS> {
         let inner = self.inner.build().unwrap();
         EventLoop {
             window_target: EventLoopWindowTarget {
-                reactor: Reactor::<TS>::get(),
+                reactor: Reactor::<U, TS>::get(),
                 proxy: inner.create_proxy(),
                 raw_display_handle: inner.raw_display_handle(),
                 #[cfg(any(x11_platform, wayland_platform))]
@@ -198,6 +201,7 @@ impl EventLoopBuilder {
                         }
                     }
                 },
+                dummy: std::marker::PhantomData,
             },
             inner,
         }
@@ -216,24 +220,24 @@ unsafe impl<TS: ThreadSafety> HasRawDisplayHandle for EventLoop<TS> {
     }
 }
 
-impl<TS: ThreadSafety> EventLoop<TS> {
+impl<U, TS: ThreadSafety> EventLoop<U, TS> {
     /// Alias for [`EventLoopBuilder::new().build()`].
     ///
     /// [`EventLoopBuilder::new().build()`]: EventLoopBuilder::build
     #[inline]
-    pub fn new() -> EventLoop<TS> {
-        EventLoopBuilder::new().build()
+    pub fn new() -> EventLoop<U, TS> {
+        EventLoopBuilder::new().build::<U, TS>()
     }
 }
 
-impl<TS: ThreadSafety> Default for EventLoop<TS> {
+impl<U, TS: ThreadSafety> Default for EventLoop<U, TS> {
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<TS: ThreadSafety> EventLoopWindowTarget<TS> {
+impl<U, TS: ThreadSafety> EventLoopWindowTarget<U, TS> {
     /// Request that the event loop exit as soon as possible.
     #[inline]
     pub fn set_exit(&self) {
@@ -262,13 +266,13 @@ impl<TS: ThreadSafety> EventLoopWindowTarget<TS> {
 
     /// Get the handler for the `Resumed` event.
     #[inline]
-    pub fn resumed(&self) -> &Handler<(), TS> {
+    pub fn resumed(&self) -> &Handler<(), (), TS> {
         &self.reactor.evl_registration.resumed
     }
 
     /// Get the handler for the `Suspended` event.
     #[inline]
-    pub fn suspended(&self) -> &Handler<(), TS> {
+    pub fn suspended(&self) -> &Handler<(), (), TS> {
         &self.reactor.evl_registration.suspended
     }
 
@@ -316,7 +320,7 @@ impl<TS: ThreadSafety + 'static> EventLoop<TS> {
         let inner = self.inner;
 
         let mut future = Box::pin(future);
-        let mut filter = crate::filter::Filter::<TS>::new(&inner);
+        let mut filter = crate::filter::Filter::<U, TS>::new(&inner);
 
         inner.run(move |event, elwt| {
             let user_data = &mut user_data;

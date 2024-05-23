@@ -50,24 +50,24 @@ use crate::sync::{MutexGuard, ThreadSafety, __private::*};
 ///
 /// This type does not allocate unless you use any waiting functions; therefore, you only pay overhead
 /// for events that you use.
-pub struct Handler<T: Event, TS: ThreadSafety> {
+pub struct Handler<T: Event, U, TS: ThreadSafety> {
     /// State of the handler.
     ///
     /// `State` is around sixteen words plus the size of `T::Clonable`, and we store around 25 of
     /// them per instance of `window::Registration`. In the interest of not blowing up the size of
     /// `Registration`, we allocate this on the heap. Also, since sometimes the event will not ever
     /// be used, we use a `OnceLock` to avoid allocating the state until it is needed.
-    state: TS::OnceLock<Box<TS::Mutex<State<T>>>>,
+    state: TS::OnceLock<Box<TS::Mutex<State<T, U>>>>,
 }
 
-struct State<T: Event> {
+struct State<T: Event, U> {
     /// Listeners for the event.
     ///
     /// These form a linked list.
     listeners: Slab<Listener>,
 
     /// List of direct listeners.
-    directs: Vec<DirectListener<T>>,
+    directs: Vec<DirectListener<T, U>>,
 
     /// The head and tail of the linked list.
     head_and_tail: Option<(usize, usize)>,
@@ -79,18 +79,18 @@ struct State<T: Event> {
     instance: Option<T::Clonable>,
 }
 
-type DirectListener<T> =
-    Box<dyn FnMut(&mut <T as Event>::Unique<'_>) -> DirectFuture + Send + 'static>;
+type DirectListener<T, U> =
+    Box<dyn FnMut(&mut <T as Event>::Unique<'_>, &mut U) -> DirectFuture + Send + 'static>;
 type DirectFuture = Pin<Box<dyn Future<Output = bool> + Send + 'static>>;
 
-impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
+impl<T: Event, U, TS: ThreadSafety> Handler<T, U, TS> {
     pub(crate) fn new() -> Self {
         Self {
             state: TS::OnceLock::new(),
         }
     }
 
-    pub(crate) async fn run_with<U>(&self, event: &mut T::Unique<'_>, user_data: &mut U) {
+    pub(crate) async fn run_with(&self, event: &mut T::Unique<'_>, user_data: &mut U) {
         // If the state hasn't been created yet, return.
         let state = match self.state.get() {
             Some(state) => state,
@@ -99,7 +99,10 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
 
         // Run the direct listeners.
         let mut state_lock = Some(state.lock().unwrap());
-        if self.run_direct_listeners(&mut state_lock, user_data, event).await {
+        if self
+            .run_direct_listeners(&mut state_lock, user_data, event)
+            .await
+        {
             return;
         }
 
@@ -150,16 +153,16 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
         .await
     }
 
-    async fn run_direct_listeners<U>(
+    async fn run_direct_listeners(
         &self,
-        state: &mut Option<MutexGuard<'_, State<T>, TS>>,
+        state: &mut Option<MutexGuard<'_, State<T, U>, TS>>,
         user_data: &mut U,
         event: &mut T::Unique<'_>,
     ) -> bool {
         /// Guard to restore direct listeners event a
         struct RestoreDirects<'a, T: Event, U, TS: ThreadSafety> {
-            state: &'a Handler<T, TS>,
-            directs: Vec<DirectListener<T>>,
+            state: &'a Handler<T, U, TS>,
+            directs: Vec<DirectListener<T, U>>,
             user_data: &'a mut U,
         }
 
@@ -193,7 +196,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
 
         // Iterate over the direct listeners.
         for direct in &mut directs.directs {
-            if direct(event).await {
+            if direct(event, directs.user_data).await {
                 return true;
             }
         }
@@ -202,38 +205,43 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
     }
 
     /// Wait for the next event.
-    pub fn wait(&self) -> Waiter<'_, T, TS> {
+    pub fn wait(&self) -> Waiter<'_, T, U, TS> {
         Waiter::new(self)
     }
 
     /// Register an async closure be called when the event is received.
     pub fn wait_direct_async<
         Fut: Future<Output = bool> + Send + 'static,
-        F: FnMut(&mut T::Unique<'_>) -> Fut + Send + 'static,
+        F: FnMut(&mut T::Unique<'_>, &mut U) -> Fut + Send + 'static,
     >(
         &self,
         mut f: F,
     ) {
         let mut state = self.state().lock().unwrap();
-        state.directs.push(Box::new(move |u| Box::pin(f(u))))
+        state
+            .directs
+            .push(Box::new(move |u, data| Box::pin(f(u, data))))
     }
 
     /// Register a closure be called when the event is received.
-    pub fn wait_direct(&self, mut f: impl FnMut(&mut T::Unique<'_>) -> bool + Send + 'static) {
-        self.wait_direct_async(move |u| std::future::ready(f(u)))
+    pub fn wait_direct(
+        &self,
+        mut f: impl FnMut(&mut T::Unique<'_>, &mut U) -> bool + Send + 'static,
+    ) {
+        self.wait_direct_async(move |u, data| std::future::ready(f(u, data)))
     }
 
     /// Get the inner state.
-    fn state(&self) -> &TS::Mutex<State<T>> {
+    fn state(&self) -> &TS::Mutex<State<T, U>> {
         self.state
             .get_or_init(|| Box::new(TS::Mutex::new(State::new())))
     }
 }
 
-impl<T: Event, TS: ThreadSafety> Unpin for Handler<T, TS> {}
+impl<T: Event, U, TS: ThreadSafety> Unpin for Handler<T, U, TS> {}
 
-impl<'a, T: Event, TS: ThreadSafety> IntoFuture for &'a Handler<T, TS> {
-    type IntoFuture = Waiter<'a, T, TS>;
+impl<'a, T: Event, U, TS: ThreadSafety> IntoFuture for &'a Handler<T, U, TS> {
+    type IntoFuture = Waiter<'a, T, U, TS>;
     type Output = T::Clonable;
 
     fn into_future(self) -> Self::IntoFuture {
@@ -242,19 +250,19 @@ impl<'a, T: Event, TS: ThreadSafety> IntoFuture for &'a Handler<T, TS> {
 }
 
 /// Waits for an event to be received.
-pub struct Waiter<'a, T: Event, TS: ThreadSafety> {
+pub struct Waiter<'a, T: Event, U, TS: ThreadSafety> {
     /// The event handler.
-    handler: &'a Handler<T, TS>,
+    handler: &'a Handler<T, U, TS>,
 
     /// The index of our listener.
     index: usize,
 }
 
-impl<T: Event, TS: ThreadSafety> Unpin for Waiter<'_, T, TS> {}
+impl<T: Event, U, TS: ThreadSafety> Unpin for Waiter<'_, T, U, TS> {}
 
-impl<'a, T: Event, TS: ThreadSafety> Waiter<'a, T, TS> {
+impl<'a, T: Event, U, TS: ThreadSafety> Waiter<'a, T, U, TS> {
     /// Create a new waiter.
-    pub(crate) fn new(handler: &'a Handler<T, TS>) -> Self {
+    pub(crate) fn new(handler: &'a Handler<T, U, TS>) -> Self {
         // Get the inner state.
         let state = handler.state();
 
@@ -263,7 +271,7 @@ impl<'a, T: Event, TS: ThreadSafety> Waiter<'a, T, TS> {
         Self { handler, index }
     }
 
-    fn notify_next(&mut self, mut state: MutexGuard<'_, State<T>, TS>) {
+    fn notify_next(&mut self, mut state: MutexGuard<'_, State<T, U>, TS>) {
         if let Some(next) = state.listeners[self.index].next.get() {
             // Notify the next listener.
             if let Some(waker) = state.notify(next) {
@@ -279,7 +287,7 @@ impl<'a, T: Event, TS: ThreadSafety> Waiter<'a, T, TS> {
     }
 
     /// Wait for a guard that prevents the event from moving on.
-    pub async fn hold(&mut self) -> HoldGuard<'_, 'a, T, TS> {
+    pub async fn hold(&mut self) -> HoldGuard<'_, 'a, T, U, TS> {
         // Wait for the event.
         let event = future::poll_fn(|cx| {
             let mut state = self.handler.state().lock().unwrap();
@@ -308,7 +316,7 @@ impl<'a, T: Event, TS: ThreadSafety> Waiter<'a, T, TS> {
     }
 }
 
-impl<T: Event, TS: ThreadSafety> Future for Waiter<'_, T, TS> {
+impl<T: Event, U, TS: ThreadSafety> Future for Waiter<'_, T, U, TS> {
     type Output = T::Clonable;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -320,7 +328,7 @@ impl<T: Event, TS: ThreadSafety> Future for Waiter<'_, T, TS> {
     }
 }
 
-impl<T: Event, TS: ThreadSafety> Stream for Waiter<'_, T, TS> {
+impl<T: Event, U, TS: ThreadSafety> Stream for Waiter<'_, T, U, TS> {
     type Item = T::Clonable;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -351,7 +359,7 @@ impl<T: Event, TS: ThreadSafety> Stream for Waiter<'_, T, TS> {
     }
 }
 
-impl<'a, T: Event, TS: ThreadSafety> Drop for Waiter<'a, T, TS> {
+impl<'a, T: Event, U, TS: ThreadSafety> Drop for Waiter<'a, T, U, TS> {
     fn drop(&mut self) {
         let mut state = self.handler.state().lock().unwrap();
 
@@ -366,15 +374,15 @@ impl<'a, T: Event, TS: ThreadSafety> Drop for Waiter<'a, T, TS> {
 }
 
 /// A guard that notifies the next listener when dropped.
-pub struct HoldGuard<'waiter, 'handler, T: Event, TS: ThreadSafety> {
+pub struct HoldGuard<'waiter, 'handler, T: Event, U, TS: ThreadSafety> {
     /// The waiter.
-    waiter: &'waiter mut Waiter<'handler, T, TS>,
+    waiter: &'waiter mut Waiter<'handler, T, U, TS>,
 
     /// The event we just received.
     event: Option<T::Clonable>,
 }
 
-impl<T: Event, TS: ThreadSafety> Deref for HoldGuard<'_, '_, T, TS> {
+impl<T: Event, U, TS: ThreadSafety> Deref for HoldGuard<'_, '_, T, U, TS> {
     type Target = T::Clonable;
 
     fn deref(&self) -> &Self::Target {
@@ -382,20 +390,20 @@ impl<T: Event, TS: ThreadSafety> Deref for HoldGuard<'_, '_, T, TS> {
     }
 }
 
-impl<T: Event, TS: ThreadSafety> DerefMut for HoldGuard<'_, '_, T, TS> {
+impl<T: Event, U, TS: ThreadSafety> DerefMut for HoldGuard<'_, '_, T, U, TS> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event.as_mut().unwrap()
     }
 }
 
-impl<T: Event, TS: ThreadSafety> HoldGuard<'_, '_, T, TS> {
+impl<T: Event, U, TS: ThreadSafety> HoldGuard<'_, '_, T, U, TS> {
     /// Get the event.
     pub fn into_inner(mut self) -> T::Clonable {
         self.event.take().unwrap()
     }
 }
 
-impl<T: Event, TS: ThreadSafety> Drop for HoldGuard<'_, '_, T, TS> {
+impl<T: Event, U, TS: ThreadSafety> Drop for HoldGuard<'_, '_, T, U, TS> {
     fn drop(&mut self) {
         // Tell the waiter to notify the next listener.
         self.waiter
@@ -403,7 +411,7 @@ impl<T: Event, TS: ThreadSafety> Drop for HoldGuard<'_, '_, T, TS> {
     }
 }
 
-impl<T: Event> State<T> {
+impl<T: Event, U> State<T, U> {
     /// Get a fresh state instance.
     fn new() -> Self {
         Self {
