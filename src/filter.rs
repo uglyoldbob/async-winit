@@ -123,8 +123,9 @@ impl<TS: ThreadSafety> Filter<TS> {
     /// Handle an event.
     ///
     /// This function will block on the future if it is in the holding pattern.
-    pub fn handle_event<F>(
+    pub fn handle_event<U, F>(
         &mut self,
+        user_data: &mut U,
         future: Pin<&mut F>,
         event: Event<Wakeup>,
         elwt: &EventLoopWindowTarget<Wakeup>,
@@ -165,7 +166,7 @@ impl<TS: ThreadSafety> Filter<TS> {
         };
 
         // Notify the reactor with our event.
-        let notifier = self.reactor.post_event(event);
+        let notifier = self.reactor.post_event(user_data, event);
         futures_lite::pin!(notifier);
 
         // Try to poll it once.

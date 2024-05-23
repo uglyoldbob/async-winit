@@ -308,8 +308,9 @@ impl<TS: ThreadSafety + 'static> EventLoop<TS> {
 
     /// Block on a future forever.
     #[inline]
-    pub fn block_on(
+    pub fn block_on<U>(
         self,
+        mut user_data: U,
         future: impl Future<Output = Infallible> + 'static,
     ) -> Result<(), winit::error::EventLoopError> {
         let inner = self.inner;
@@ -318,7 +319,8 @@ impl<TS: ThreadSafety + 'static> EventLoop<TS> {
         let mut filter = crate::filter::Filter::<TS>::new(&inner);
 
         inner.run(move |event, elwt| {
-            filter.handle_event(future.as_mut(), event, elwt);
+            let user_data = &mut user_data;
+            filter.handle_event(user_data, future.as_mut(), event, elwt);
         })
     }
 }

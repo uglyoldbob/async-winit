@@ -262,7 +262,7 @@ impl<TS: ThreadSafety> Reactor<TS> {
     }
 
     /// Post an event to the reactor.
-    pub(crate) async fn post_event<T: 'static>(&self, event: winit::event::Event<T>) {
+    pub(crate) async fn post_event<U, T: 'static>(&self, user_data: &mut U, event: winit::event::Event<T>) {
         use winit::event::Event;
 
         match event {
@@ -273,13 +273,13 @@ impl<TS: ThreadSafety> Reactor<TS> {
                 };
 
                 if let Some(registration) = registration {
-                    registration.signal(event).await;
+                    registration.signal(user_data, event).await;
                 }
             }
             Event::Resumed => {
-                self.evl_registration.resumed.run_with(&mut ()).await;
+                self.evl_registration.resumed.run_with(&mut (), user_data).await;
             }
-            Event::Suspended => self.evl_registration.suspended.run_with(&mut ()).await,
+            Event::Suspended => self.evl_registration.suspended.run_with(&mut (), user_data).await,
             _ => {}
         }
     }

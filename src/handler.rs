@@ -90,7 +90,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
         }
     }
 
-    pub(crate) async fn run_with(&self, event: &mut T::Unique<'_>) {
+    pub(crate) async fn run_with<U>(&self, event: &mut T::Unique<'_>, user_data: &mut U) {
         // If the state hasn't been created yet, return.
         let state = match self.state.get() {
             Some(state) => state,
@@ -99,7 +99,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
 
         // Run the direct listeners.
         let mut state_lock = Some(state.lock().unwrap());
-        if self.run_direct_listeners(&mut state_lock, event).await {
+        if self.run_direct_listeners(&mut state_lock, user_data, event).await {
             return;
         }
 
@@ -150,18 +150,20 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
         .await
     }
 
-    async fn run_direct_listeners(
+    async fn run_direct_listeners<U>(
         &self,
         state: &mut Option<MutexGuard<'_, State<T>, TS>>,
+        user_data: &mut U,
         event: &mut T::Unique<'_>,
     ) -> bool {
         /// Guard to restore direct listeners event a
-        struct RestoreDirects<'a, T: Event, TS: ThreadSafety> {
+        struct RestoreDirects<'a, T: Event, U, TS: ThreadSafety> {
             state: &'a Handler<T, TS>,
             directs: Vec<DirectListener<T>>,
+            user_data: &'a mut U,
         }
 
-        impl<T: Event, TS: ThreadSafety> Drop for RestoreDirects<'_, T, TS> {
+        impl<T: Event, U, TS: ThreadSafety> Drop for RestoreDirects<'_, T, U, TS> {
             fn drop(&mut self) {
                 let mut directs = mem::take(&mut self.directs);
                 self.state
@@ -183,6 +185,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
         let mut directs = RestoreDirects {
             directs: mem::take(&mut state_ref.directs),
             state: self,
+            user_data,
         };
 
         // Make sure the mutex isn't locked while we call user code.

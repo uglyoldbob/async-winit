@@ -215,14 +215,14 @@ impl<TS: ThreadSafety> Registration<TS> {
         }
     }
 
-    pub(crate) async fn signal(&self, event: WindowEvent) {
+    pub(crate) async fn signal<U>(&self, user_data: &mut U, event: WindowEvent) {
         match event {
             WindowEvent::RedrawRequested => {
-                self.redraw_requested.run_with(&mut ()).await;
+                self.redraw_requested.run_with(&mut (), user_data).await;
             }
-            WindowEvent::CloseRequested => self.close_requested.run_with(&mut ()).await,
-            WindowEvent::Resized(mut size) => self.resized.run_with(&mut size).await,
-            WindowEvent::Moved(mut posn) => self.moved.run_with(&mut posn).await,
+            WindowEvent::CloseRequested => self.close_requested.run_with(&mut (), user_data).await,
+            WindowEvent::Resized(mut size) => self.resized.run_with(&mut size, user_data).await,
+            WindowEvent::Moved(mut posn) => self.moved.run_with(&mut posn, user_data).await,
             WindowEvent::AxisMotion {
                 device_id,
                 axis,
@@ -233,14 +233,14 @@ impl<TS: ThreadSafety> Registration<TS> {
                         device_id,
                         axis,
                         value,
-                    })
+                    }, user_data)
                     .await
             }
             WindowEvent::CursorEntered { mut device_id } => {
-                self.cursor_entered.run_with(&mut device_id).await
+                self.cursor_entered.run_with(&mut device_id, user_data).await
             }
             WindowEvent::CursorLeft { mut device_id } => {
-                self.cursor_left.run_with(&mut device_id).await
+                self.cursor_left.run_with(&mut device_id, user_data).await
             }
             WindowEvent::CursorMoved {
                 device_id,
@@ -251,12 +251,12 @@ impl<TS: ThreadSafety> Registration<TS> {
                     .run_with(&mut CursorMoved {
                         device_id,
                         position,
-                    })
+                    }, user_data)
                     .await
             }
-            WindowEvent::Destroyed => self.destroyed.run_with(&mut ()).await,
-            WindowEvent::Focused(mut foc) => self.focused.run_with(&mut foc).await,
-            WindowEvent::Ime(mut ime) => self.ime.run_with(&mut ime).await,
+            WindowEvent::Destroyed => self.destroyed.run_with(&mut (), user_data).await,
+            WindowEvent::Focused(mut foc) => self.focused.run_with(&mut foc, user_data).await,
+            WindowEvent::Ime(mut ime) => self.ime.run_with(&mut ime, user_data).await,
             WindowEvent::KeyboardInput {
                 device_id,
                 event,
@@ -267,11 +267,11 @@ impl<TS: ThreadSafety> Registration<TS> {
                         device_id,
                         event,
                         is_synthetic,
-                    })
+                    }, user_data)
                     .await
             }
             WindowEvent::ModifiersChanged(mods) => {
-                self.modifiers_changed.run_with(&mut mods.state()).await
+                self.modifiers_changed.run_with(&mut mods.state(), user_data).await
             }
             WindowEvent::MouseInput {
                 device_id,
@@ -284,7 +284,7 @@ impl<TS: ThreadSafety> Registration<TS> {
                         device_id,
                         state,
                         button,
-                    })
+                    }, user_data)
                     .await
             }
             WindowEvent::MouseWheel {
@@ -298,10 +298,10 @@ impl<TS: ThreadSafety> Registration<TS> {
                         device_id,
                         delta,
                         phase,
-                    })
+                    }, user_data)
                     .await
             }
-            WindowEvent::Occluded(mut occ) => self.occluded.run_with(&mut occ).await,
+            WindowEvent::Occluded(mut occ) => self.occluded.run_with(&mut occ, user_data).await,
             WindowEvent::ScaleFactorChanged {
                 scale_factor,
                 mut inner_size_writer,
@@ -310,14 +310,14 @@ impl<TS: ThreadSafety> Registration<TS> {
                     .run_with(&mut ScaleFactorChanging {
                         scale_factor,
                         inner_size_writer: &mut inner_size_writer,
-                    })
+                    }, user_data)
                     .await
             }
             WindowEvent::SmartMagnify { mut device_id } => {
-                self.smart_magnify.run_with(&mut device_id).await
+                self.smart_magnify.run_with(&mut device_id, user_data).await
             }
-            WindowEvent::ThemeChanged(mut theme) => self.theme_changed.run_with(&mut theme).await,
-            WindowEvent::Touch(mut touch) => self.touch.run_with(&mut touch).await,
+            WindowEvent::ThemeChanged(mut theme) => self.theme_changed.run_with(&mut theme, user_data).await,
+            WindowEvent::Touch(mut touch) => self.touch.run_with(&mut touch, user_data).await,
             WindowEvent::TouchpadMagnify {
                 device_id,
                 delta,
@@ -328,7 +328,7 @@ impl<TS: ThreadSafety> Registration<TS> {
                         device_id,
                         delta,
                         phase,
-                    })
+                    }, user_data)
                     .await
             }
             WindowEvent::TouchpadPressure {
@@ -341,7 +341,7 @@ impl<TS: ThreadSafety> Registration<TS> {
                         device_id,
                         pressure,
                         stage,
-                    })
+                    }, user_data)
                     .await
             }
             WindowEvent::TouchpadRotate {
@@ -354,7 +354,7 @@ impl<TS: ThreadSafety> Registration<TS> {
                         device_id,
                         delta,
                         phase,
-                    })
+                    }, user_data)
                     .await
             }
             _ => {}
