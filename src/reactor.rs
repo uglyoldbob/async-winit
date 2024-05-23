@@ -72,6 +72,10 @@ pub struct Reactor<U, T: ThreadSafety> {
     pub(crate) evl_registration: GlobalRegistration<T>,
 }
 
+impl<U: 'static, T: ThreadSafety + 'static> typemap::Key for Reactor<U, T> {
+    type Value = std::rc::Rc<Reactor<U, T>>;
+}
+
 enum TimerOp {
     /// Add a new timer.
     InsertTimer(Instant, usize, Waker),
@@ -80,7 +84,7 @@ enum TimerOp {
     RemoveTimer(Instant, usize),
 }
 
-impl<U, TS: ThreadSafety> Reactor<U, TS> {
+impl<U: 'static, TS: ThreadSafety> Reactor<U, TS> {
     /// Create an empty reactor.
     pub(crate) fn new() -> Self {
         static ALREADY_EXISTS: AtomicBool = AtomicBool::new(false);

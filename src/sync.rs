@@ -73,15 +73,11 @@ impl __ThreadSafety for ThreadUnsafe {
         us_channel::channel()
     }
 
-    fn get_reactor<U>() -> Self::Rc<Reactor<U, Self>> {
+    fn get_reactor<U: 'static>() -> Self::Rc<Reactor<U, Self>> {
         use once_cell::sync::OnceCell;
 
         /// The thread ID of the thread that created the reactor.
         static REACTOR_THREAD_ID: OnceCell<thread::ThreadId> = OnceCell::new();
-
-        std::thread_local! {
-            static REACTOR: RefCell<Option<std::rc::Rc<Reactor<U, ThreadUnsafe>>>> = RefCell::new(None);
-        }
 
         // Try to set the thread ID.
         let thread_id = thread_id();
@@ -91,12 +87,19 @@ impl __ThreadSafety for ThreadUnsafe {
             panic!("The reactor must be created on the main thread");
         }
 
-        REACTOR.with(|reactor| {
-            reactor
-                .borrow_mut()
-                .get_or_insert_with(|| std::rc::Rc::new(Reactor::new()))
-                .clone()
-        })
+        std::thread_local! {
+            static REACTOR_MAP : RefCell<typemap::TypeMap> = RefCell::new(typemap::TypeMap::new());
+        }
+
+        let rm = REACTOR_MAP.with(|map| {
+            let mut map = map.borrow_mut();
+            if !map.contains::<Reactor<U, Self>>() {
+                let reactor = Reactor::<U, Self>::new();
+                map.insert::<Reactor<U, Self>>(std::rc::Rc::new(reactor));
+            }
+            map.get::<Reactor<U, Self>>().map(|a| a.clone())
+        });
+        rm.unwrap()
     }
 }
 
@@ -489,7 +492,7 @@ pub(crate) mod __private {
         type Rc<T>: Rc<T>;
 
         fn channel_bounded<T>(capacity: usize) -> (Self::Sender<T>, Self::Receiver<T>);
-        fn get_reactor<U>() -> Self::Rc<crate::reactor::Reactor<U, Self>>
+        fn get_reactor<U: 'static>() -> Self::Rc<crate::reactor::Reactor<U, Self>>
         where
             Self: super::ThreadSafety;
     }

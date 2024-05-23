@@ -180,7 +180,7 @@ impl EventLoopBuilder {
     /// This function results in platform-specific backend initialization.
     ///
     /// [`platform`]: crate::platform
-    pub fn build<U, TS: ThreadSafety>(&mut self) -> EventLoop<U, TS> {
+    pub fn build<U: 'static, TS: ThreadSafety>(&mut self) -> EventLoop<U, TS> {
         let inner = self.inner.build().unwrap();
         EventLoop {
             window_target: EventLoopWindowTarget {
@@ -220,7 +220,7 @@ unsafe impl<TS: ThreadSafety> HasRawDisplayHandle for EventLoop<TS> {
     }
 }
 
-impl<U, TS: ThreadSafety> EventLoop<U, TS> {
+impl<U: 'static, TS: ThreadSafety> EventLoop<U, TS> {
     /// Alias for [`EventLoopBuilder::new().build()`].
     ///
     /// [`EventLoopBuilder::new().build()`]: EventLoopBuilder::build
@@ -230,14 +230,14 @@ impl<U, TS: ThreadSafety> EventLoop<U, TS> {
     }
 }
 
-impl<U, TS: ThreadSafety> Default for EventLoop<U, TS> {
+impl<U: 'static, TS: ThreadSafety> Default for EventLoop<U, TS> {
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<U, TS: ThreadSafety> EventLoopWindowTarget<U, TS> {
+impl<U: 'static, TS: ThreadSafety> EventLoopWindowTarget<U, TS> {
     /// Request that the event loop exit as soon as possible.
     #[inline]
     pub fn set_exit(&self) {
@@ -312,7 +312,7 @@ impl<TS: ThreadSafety + 'static> EventLoop<TS> {
 
     /// Block on a future forever.
     #[inline]
-    pub fn block_on<U>(
+    pub fn block_on<U: 'static>(
         self,
         mut user_data: U,
         future: impl Future<Output = Infallible> + 'static,

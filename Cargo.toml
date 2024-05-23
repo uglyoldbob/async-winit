@@ -20,6 +20,7 @@ pin-project-lite = "0.2.9"
 raw-window-handle-6 = { package = "raw-window-handle", version = "0.6.0" }
 raw-window-handle = { package = "raw-window-handle", version = "0.5.2" }
 slab = "0.4.8"
+typemap = "0.3.3"
 unsend = { version = "0.2.1", default-features = false, features = ["alloc"] }
 winit = { version = "0.29.15", default-features = false, features = ["rwh_05"] }
 

@@ -35,7 +35,7 @@ pub trait EventLoopExtRunOnDemand {
     /// and returns control flow to the caller when `control_flow` is set to [`ControlFlow::Exit`].
     ///
     /// [`ControlFlow::Exit`]: crate::event_loop::ControlFlow::Exit
-    fn block_on_demand<U, F>(
+    fn block_on_demand<U: 'static, F>(
         &mut self,
         user_data: &mut U,
         future: F,
@@ -45,7 +45,7 @@ pub trait EventLoopExtRunOnDemand {
 }
 
 impl<TS: ThreadSafety> EventLoopExtRunOnDemand for EventLoop<TS> {
-    fn block_on_demand<U, F>(
+    fn block_on_demand<U: 'static, F>(
         &mut self,
         user_data: &mut U,
         fut: F,

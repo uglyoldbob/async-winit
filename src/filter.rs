@@ -85,7 +85,7 @@ pub struct Filter<U, TS: ThreadSafety> {
     reactor: TS::Rc<Reactor<U, TS>>,
 }
 
-impl<U, TS: ThreadSafety> Filter<U, TS> {
+impl<U: 'static, TS: ThreadSafety> Filter<U, TS> {
     /// Create a new filter from an event loop.
     ///
     /// The future is polled once before returning to set up event handlers.

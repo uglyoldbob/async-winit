@@ -362,7 +362,7 @@ impl WindowBuilder {
     }
 
     /// Build a new window.
-    pub async fn build<U, TS: ThreadSafety>(self) -> Result<Window<U, TS>, OsError> {
+    pub async fn build<U: 'static, TS: ThreadSafety>(self) -> Result<Window<U, TS>, OsError> {
         let (tx, rx) = oneoff();
         let reactor = TS::get_reactor();
         reactor
@@ -436,7 +436,7 @@ impl WindowBuilder {
 
 /// A window.
 #[derive(Clone)]
-pub struct Window<U, TS: ThreadSafety> {
+pub struct Window<U: 'static, TS: ThreadSafety> {
     /// Underlying window.
     inner: TS::Rc<winit::window::Window>,
 
@@ -447,7 +447,7 @@ pub struct Window<U, TS: ThreadSafety> {
     reactor: TS::Rc<Reactor<U, TS>>,
 }
 
-impl<U, TS: ThreadSafety> Drop for Window<U, TS> {
+impl<U: 'static, TS: ThreadSafety> Drop for Window<U, TS> {
     fn drop(&mut self) {
         self.reactor.remove_window(self.inner.id());
     }
@@ -465,7 +465,7 @@ unsafe impl<U, TS: ThreadSafety> raw_window_handle::HasRawWindowHandle for Windo
     }
 }
 
-impl<U, TS: ThreadSafety> Window<U, TS> {
+impl<U: 'static, TS: ThreadSafety> Window<U, TS> {
     /// Create a new window.
     pub async fn new() -> Result<Window<U, TS>, OsError> {
         WindowBuilder::new().build().await
@@ -542,7 +542,7 @@ impl<U, TS: ThreadSafety> Window<U, TS> {
     }
 }
 
-impl<U, TS: ThreadSafety> Window<U, TS> {
+impl<U: 'static, TS: ThreadSafety> Window<U, TS> {
     /// Get the inner position of the window.
     pub async fn inner_position(&self) -> Result<PhysicalPosition<i32>, NotSupportedError> {
         let (tx, rx) = oneoff();

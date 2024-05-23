@@ -42,7 +42,7 @@ use futures_lite::stream::Stream;
 ///
 /// [`ControlFlow::WaitUntil`]: crate::event_loop::ControlFlow::WaitUntil
 /// [`Timer`]: https://docs.rs/async-io/latest/async_io/timer/struct.Timer.html
-pub struct Timer<U, TS: ThreadSafety = crate::DefaultThreadSafety> {
+pub struct Timer<U: 'static, TS: ThreadSafety = crate::DefaultThreadSafety> {
     /// Static reference to the reactor.
     reactor: TS::Rc<Reactor<U, TS>>,
 
@@ -56,7 +56,7 @@ pub struct Timer<U, TS: ThreadSafety = crate::DefaultThreadSafety> {
     period: Duration,
 }
 
-impl<TS: ThreadSafety> fmt::Debug for Timer<TS> {
+impl<U: 'static, TS: ThreadSafety> fmt::Debug for Timer<U, TS> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Timer")
             .field("deadline", &self.deadline)
@@ -66,9 +66,9 @@ impl<TS: ThreadSafety> fmt::Debug for Timer<TS> {
     }
 }
 
-impl<TS: ThreadSafety> Unpin for Timer<TS> {}
+impl<U: 'static, TS: ThreadSafety> Unpin for Timer<U, TS> {}
 
-impl<U, TS: ThreadSafety> Timer<U, TS> {
+impl<U: 'static, TS: ThreadSafety> Timer<U, TS> {
     /// Create a new timer that will never fire.
     pub fn never() -> Self {
         Self {
@@ -160,13 +160,13 @@ impl<U, TS: ThreadSafety> Timer<U, TS> {
     }
 }
 
-impl<U, TS: ThreadSafety> Drop for Timer<U, TS> {
+impl<U: 'static, TS: ThreadSafety> Drop for Timer<U, TS> {
     fn drop(&mut self) {
         self.clear();
     }
 }
 
-impl<TS: ThreadSafety> Future for Timer<TS> {
+impl<U: 'static, TS: ThreadSafety + 'static> Future for Timer<U, TS> {
     type Output = Instant;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -174,7 +174,7 @@ impl<TS: ThreadSafety> Future for Timer<TS> {
     }
 }
 
-impl<TS: ThreadSafety> Stream for Timer<TS> {
+impl<U: 'static, TS: ThreadSafety + 'static> Stream for Timer<U, TS> {
     type Item = Instant;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
