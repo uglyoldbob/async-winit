@@ -130,7 +130,7 @@ pub trait WindowExtWindows: sealed::WindowPrivate {
     fn set_undecorated_shadow(&self, shadow: bool);
 }
 
-impl<TS: ThreadSafety> WindowExtWindows for Window<TS> {
+impl<U, TS: ThreadSafety> WindowExtWindows for Window<U, TS> {
     fn set_enable(&self, enabled: bool) {
         self.window().set_enable(enabled);
     }

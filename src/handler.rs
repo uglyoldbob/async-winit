@@ -20,6 +20,7 @@ Public License along with `async-winit`. If not, see <https://www.gnu.org/licens
 
 use std::cell::Cell;
 use std::future::{Future, IntoFuture};
+use std::marker::PhantomData;
 use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
@@ -77,6 +78,34 @@ struct State<T: Event, U> {
 
     /// The currently active event.
     instance: Option<T::Clonable>,
+}
+
+#[derive(Clone)]
+struct DirectListener2<F, T, U>
+where
+    T: Clone + 'static,
+    F: FnMut(&mut <T as Event>::Unique<'_>, &mut U) -> DirectFuture + Send + 'static,
+{
+    f: F,
+    d1: PhantomData<T>,
+    d2: PhantomData<U>,
+}
+
+impl<F, T: Clone + 'static, U> DirectListener2<F, T, U>
+where
+    F: FnMut(&mut <T as Event>::Unique<'_>, &mut U) -> DirectFuture + Send + 'static,
+{
+    pub fn new(f: F) -> Self {
+        Self {
+            f,
+            d1: PhantomData,
+            d2: PhantomData,
+        }
+    }
+
+    pub async fn run(&mut self, a: &mut T, b: &mut U) -> bool {
+        (self.f)(a, b).await
+    }
 }
 
 type DirectListener<T, U> =
