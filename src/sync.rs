@@ -264,6 +264,14 @@ impl<T> __private::Rc<T> for std::rc::Rc<T> {
     fn new(value: T) -> Self {
         Self::new(value)
     }
+
+    fn get_mut(this: &mut Self) -> Option<&mut T> {
+        std::rc::Rc::<T>::get_mut(this)
+    }
+
+    fn strong_count(this: &Self) -> usize {
+        std::rc::Rc::<T>::strong_count(this)
+    }
 }
 
 #[cfg(feature = "thread_safe")]
@@ -463,6 +471,14 @@ pub(crate) mod thread_safe {
         fn new(value: T) -> Self {
             Self::new(value)
         }
+
+        fn get_mut(this: &mut Self) -> Option<&mut T> {
+            std::sync::Arc::<T>::get_mut(this)
+        }
+
+        fn strong_count(this: &Self) -> usize {
+            std::sync::Arc::<T>::strong_count(this)
+        }
     }
 }
 
@@ -564,5 +580,7 @@ pub(crate) mod __private {
     #[doc(hidden)]
     pub trait Rc<T>: Clone + Deref<Target = T> {
         fn new(value: T) -> Self;
+        fn get_mut(this: &mut Self) -> Option<&mut T>;
+        fn strong_count(this: &Self) -> usize;
     }
 }

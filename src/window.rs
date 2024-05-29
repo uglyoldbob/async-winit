@@ -449,7 +449,13 @@ pub struct Window<TS: ThreadSafety> {
 
 impl<TS: ThreadSafety> Drop for Window<TS> {
     fn drop(&mut self) {
-        self.reactor.remove_window(self.inner.id());
+        if let Some(inner) = TS::Rc::get_mut(&mut self.inner) {
+            println!("Dropping a window");
+            self.reactor.remove_window(inner.id());
+        }
+        else {
+            println!("Not dropping window {}", TS::Rc::strong_count(&self.inner))
+        }
     }
 }
 

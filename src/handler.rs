@@ -60,6 +60,12 @@ pub struct Handler<T: Event, TS: ThreadSafety> {
     state: TS::OnceLock<Box<TS::Mutex<State<T>>>>,
 }
 
+impl<T: Event, TS: ThreadSafety> Drop for Handler<T, TS> {
+    fn drop(&mut self) {
+        println!("dropping a handler");
+    }
+}
+
 struct State<T: Event> {
     /// Listeners for the event.
     ///
@@ -80,7 +86,7 @@ struct State<T: Event> {
 }
 
 type DirectListener<T> =
-    Box<dyn FnMut(&mut <T as Event>::Unique<'_>) -> DirectFuture + Send + 'static>;
+    Box<dyn FnMut(<T as Event>::Clonable) -> DirectFuture + Send + 'static>;
 type DirectFuture = Pin<Box<dyn Future<Output = bool> + Send + 'static>>;
 
 impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
@@ -91,6 +97,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
     }
 
     pub(crate) async fn run_with(&self, event: &mut T::Unique<'_>) {
+        let event = <T as Event>::downgrade(event);
         // If the state hasn't been created yet, return.
         let state = match self.state.get() {
             Some(state) => state,
@@ -99,7 +106,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
 
         // Run the direct listeners.
         let mut state_lock = Some(state.lock().unwrap());
-        if self.run_direct_listeners(&mut state_lock, event).await {
+        if self.run_direct_listeners(&mut state_lock, event.clone()).await {
             return;
         }
 
@@ -114,7 +121,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
             };
 
             // Set up the state.
-            state.instance = Some(T::downgrade(event));
+            state.instance = Some(event);
 
             // Notify the first entry in the list.
             if let Some(waker) = state.notify(head) {
@@ -153,7 +160,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
     async fn run_direct_listeners(
         &self,
         state: &mut Option<MutexGuard<'_, State<T>, TS>>,
-        event: &mut T::Unique<'_>,
+        event: T::Clonable,
     ) -> bool {
         /// Guard to restore direct listeners event a
         struct RestoreDirects<'a, T: Event, TS: ThreadSafety> {
@@ -190,7 +197,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
 
         // Iterate over the direct listeners.
         for direct in &mut directs.directs {
-            if direct(event).await {
+            if direct(event.clone()).await {
                 return true;
             }
         }
@@ -206,7 +213,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
     /// Register an async closure be called when the event is received.
     pub fn wait_direct_async<
         Fut: Future<Output = bool> + Send + 'static,
-        F: FnMut(&mut T::Unique<'_>) -> Fut + Send + 'static,
+        F: FnMut(T::Clonable) -> Fut + Send + 'static,
     >(
         &self,
         mut f: F,
@@ -216,7 +223,7 @@ impl<T: Event, TS: ThreadSafety> Handler<T, TS> {
     }
 
     /// Register a closure be called when the event is received.
-    pub fn wait_direct(&self, mut f: impl FnMut(&mut T::Unique<'_>) -> bool + Send + 'static) {
+    pub fn wait_direct(&self, mut f: impl FnMut(T::Clonable) -> bool + Send + 'static) {
         self.wait_direct_async(move |u| std::future::ready(f(u)))
     }
 
