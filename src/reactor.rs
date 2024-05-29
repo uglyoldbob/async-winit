@@ -175,7 +175,7 @@ impl<TS: ThreadSafety> Reactor<TS> {
 
     /// Remove a window from the window list.
     pub(crate) fn remove_window(&self, id: WindowId) {
-        println!("Removing a window {:?} {:?}", id, std::backtrace::Backtrace::force_capture());
+        println!("Removing a window {:?}", id);
         let mut windows = self.windows.lock().unwrap();
         windows.remove(&id);
     }
@@ -272,12 +272,9 @@ impl<TS: ThreadSafety> Reactor<TS> {
             Event::WindowEvent { window_id, event } => {
                 let registration = {
                     let windows = self.windows.lock().unwrap();
-                    let w = windows.get(&window_id).cloned();
-                    println!("Tried to find window {:?}: {:?}", window_id, w.is_some());
-                    w
+                    windows.get(&window_id).cloned()
                 };
                 if let Some(registration) = registration {
-                    println!("Posting window event {:?}", event);
                     registration.signal(event).await;
                 }
             }

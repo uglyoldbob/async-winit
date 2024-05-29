@@ -216,7 +216,6 @@ impl<TS: ThreadSafety> Registration<TS> {
     }
 
     pub(crate) async fn signal(&self, event: WindowEvent) {
-        println!("Signaling window event {:?}", event);
         match event {
             WindowEvent::RedrawRequested => {
                 self.redraw_requested.run_with(&mut ()).await;
