@@ -96,6 +96,7 @@ impl Default for WindowAttributes {
 #[derive(Default)]
 pub struct WindowBuilder {
     window: WindowAttributes,
+    initial_builder: Option<winit::window::WindowBuilder>,
     pub(crate) platform: crate::platform::PlatformSpecific,
 }
 
@@ -103,6 +104,13 @@ impl WindowBuilder {
     /// Create a new window builder.
     pub fn new() -> WindowBuilder {
         WindowBuilder::default()
+    }
+
+    /// Create a new window builder, using the specified builder as the window builder
+    pub fn new_with_builder(builder: winit::window::WindowBuilder) -> Self {
+        let mut a = Self::new();
+        a.initial_builder = Some(builder);
+        a
     }
 
     pub fn attributes(&self) -> &WindowAttributes {
@@ -385,48 +393,52 @@ impl WindowBuilder {
     }
 
     pub(crate) fn into_winit_builder(self) -> winit::window::WindowBuilder {
-        let mut builder = winit::window::WindowBuilder::new();
-
-        if let Some(size) = self.window.inner_size {
-            builder = builder.with_inner_size(size);
-        }
-
-        if let Some(size) = self.window.min_inner_size {
-            builder = builder.with_min_inner_size(size);
-        }
-
-        if let Some(size) = self.window.max_inner_size {
-            builder = builder.with_max_inner_size(size);
-        }
-
-        if let Some(position) = self.window.position {
-            builder = builder.with_position(position);
-        }
-
-        builder = builder
-            .with_resizable(self.window.resizable)
-            .with_enabled_buttons(self.window.enabled_buttons)
-            .with_title(&self.window.title)
-            .with_fullscreen(self.window.fullscreen.clone())
-            .with_maximized(self.window.maximized)
-            .with_visible(self.window.visible)
-            .with_transparent(self.window.transparent)
-            .with_decorations(self.window.decorations);
-
-        if let Some(icon) = self.window.window_icon.clone() {
-            builder = builder.with_window_icon(Some(icon));
-        }
-
-        builder = builder.with_theme(self.window.preferred_theme);
-
-        if let Some(size) = self.window.resize_increments {
-            builder = builder.with_resize_increments(size);
-        }
-
-        builder = builder
-            .with_content_protected(self.window.content_protected)
-            .with_window_level(self.window.window_level)
-            .with_active(self.window.active);
+        let mut builder = if let Some(ib) = self.initial_builder {
+            ib
+        } else {
+            let mut builder = winit::window::WindowBuilder::new();
+            if let Some(size) = self.window.inner_size {
+                builder = builder.with_inner_size(size);
+            }
+    
+            if let Some(size) = self.window.min_inner_size {
+                builder = builder.with_min_inner_size(size);
+            }
+    
+            if let Some(size) = self.window.max_inner_size {
+                builder = builder.with_max_inner_size(size);
+            }
+    
+            if let Some(position) = self.window.position {
+                builder = builder.with_position(position);
+            }
+    
+            builder = builder
+                .with_resizable(self.window.resizable)
+                .with_enabled_buttons(self.window.enabled_buttons)
+                .with_title(&self.window.title)
+                .with_fullscreen(self.window.fullscreen.clone())
+                .with_maximized(self.window.maximized)
+                .with_visible(self.window.visible)
+                .with_transparent(self.window.transparent)
+                .with_decorations(self.window.decorations);
+    
+            if let Some(icon) = self.window.window_icon.clone() {
+                builder = builder.with_window_icon(Some(icon));
+            }
+    
+            builder = builder.with_theme(self.window.preferred_theme);
+    
+            if let Some(size) = self.window.resize_increments {
+                builder = builder.with_resize_increments(size);
+            }
+    
+            builder = builder
+                .with_content_protected(self.window.content_protected)
+                .with_window_level(self.window.window_level)
+                .with_active(self.window.active);
+            builder
+        };
 
         builder = self.platform.apply_to(builder);
 
